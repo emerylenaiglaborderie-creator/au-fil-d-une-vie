@@ -1,13 +1,27 @@
 """Point d'entrée de l'application."""
 
+import argparse
+
 from au_fil_d_une_vie import __version__
-from au_fil_d_une_vie.config import data_dir
 
 
 def main() -> None:
-    """Lance l'application (l'interface viendra une fois le toolkit choisi)."""
-    print(f"Au fil d'une vie {__version__}")
-    print(f"Données locales : {data_dir()}")
+    parser = argparse.ArgumentParser(
+        prog="au-fil-d-une-vie", description="Partir en quête de son histoire familiale."
+    )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="ouvrir une base temporaire remplie avec le jeu de démo fictif",
+    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    args = parser.parse_args()
+
+    # Imports tardifs : --help et --version restent instantanés.
+    from au_fil_d_une_vie.bootstrap import open_services
+    from au_fil_d_une_vie.ui.app import run
+
+    raise SystemExit(run(open_services(demo=args.demo)))
 
 
 if __name__ == "__main__":

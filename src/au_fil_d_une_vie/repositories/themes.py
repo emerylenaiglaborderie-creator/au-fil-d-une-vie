@@ -63,3 +63,18 @@ class ThemeRepository:
             """
         ).fetchall()
         return {row["theme_id"]: (row["done"], row["total"]) for row in rows}
+
+    def open_questions(self) -> list[Question]:
+        """Questions sans aucun récit visible, dans l'ordre des pistes."""
+        rows = self._conn.execute(
+            """
+            SELECT q.*
+            FROM question AS q
+            JOIN theme AS t ON t.id = q.theme_id
+            WHERE NOT EXISTS (
+                SELECT 1 FROM story AS s WHERE s.question_id = q.id AND s.is_hidden = 0
+            )
+            ORDER BY t.position, t.id, q.position, q.id
+            """
+        ).fetchall()
+        return [_to_question(row) for row in rows]

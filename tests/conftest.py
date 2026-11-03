@@ -1,9 +1,13 @@
+import os
 import sqlite3
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+
+# Tests d'interface sans fenêtre à l'écran, en local comme en CI.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from au_fil_d_une_vie.models import Person, Question, Story
 from au_fil_d_une_vie.repositories import (
@@ -12,6 +16,7 @@ from au_fil_d_une_vie.repositories import (
     ThemeRepository,
     connect,
 )
+from au_fil_d_une_vie.services.demo import DEMO_PATH
 
 CONSENT = "Mamie Yvonne sait qu'elle est enregistrée et est d'accord."
 
@@ -57,4 +62,4 @@ def scene(conn: sqlite3.Connection) -> Scene:
 
 @pytest.fixture
 def demo_path() -> Path:
-    return Path(__file__).resolve().parent.parent / "demo" / "demo.json"
+    return DEMO_PATH

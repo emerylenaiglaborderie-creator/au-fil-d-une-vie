@@ -1,4 +1,4 @@
-"""Chargement du jeu de démonstration fictif (demo/demo.json)."""
+"""Chargement du jeu de démonstration fictif (data/demo.json, embarqué dans le paquet)."""
 
 import json
 import sqlite3
@@ -16,10 +16,11 @@ from au_fil_d_une_vie.repositories import (
     TranscriptRepository,
 )
 
+DEMO_PATH = Path(__file__).resolve().parent.parent / "data" / "demo.json"
 DEMO_CONSENT = "Consentement fictif (jeu de démonstration)."
 
 
-def load_demo(conn: sqlite3.Connection, path: Path) -> dict[int, list[str]]:
+def load_demo(conn: sqlite3.Connection, path: Path = DEMO_PATH) -> dict[int, list[str]]:
     """Remplit une base vide avec le jeu de démo.
 
     Les mots-clés indiqués dans le fichier sont enregistrés comme validés.

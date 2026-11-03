@@ -10,9 +10,17 @@ Application de bureau pour les 12 à 25 ans : partir en quête de son histoire f
 
 Projet de BTS SIO option SLAM.
 
+<p align="center"><img src="docs/captures/quete.png" alt="Écran Ma quête" width="760"></p>
+
 ## État
 
-En cours d'initialisation : structure du dépôt, outillage et CI.
+| Partie | Avancement |
+|---|---|
+| Base de données, repositories | fait |
+| Mots-clés (TF-IDF) et liens entre récits | fait |
+| Écran « Ma quête » | fait |
+| Interview, Récits, Fiche récit, Graphe | à venir |
+| Transcription locale, livre de famille | à venir |
 
 ## Prérequis
 
@@ -25,7 +33,8 @@ En cours d'initialisation : structure du dépôt, outillage et CI.
 git clone https://github.com/emerylenaiglaborderie-creator/au-fil-d-une-vie.git
 cd au-fil-d-une-vie
 uv sync
-uv run au-fil-d-une-vie
+uv run au-fil-d-une-vie          # ta propre quête
+uv run au-fil-d-une-vie --demo   # avec le jeu de démo fictif
 ```
 
 ## Développement
@@ -35,6 +44,8 @@ uv run pytest          # tests
 uv run ruff check .    # lint
 uv run ruff format .   # formatage
 uv run mypy            # typage
+uv run python scripts/captures.py       # captures d'écran (docs/captures/)
+uv run python scripts/generer_images.py # images de l'interface à partir du logo
 ```
 
 ## Architecture
