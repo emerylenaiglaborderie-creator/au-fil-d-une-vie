@@ -1,72 +1,211 @@
 {
   "_avertissement": "Données entièrement fictives. Aucune personne réelle.",
-  "profile": { "first_name": "Camille", "under_15": false },
+  "profile": {
+    "first_name": "Camille",
+    "under_15": false
+  },
   "people": [
-    { "key": "yvonne", "display_name": "Mamie Yvonne", "relationship": "grand-mère" },
-    { "key": "papa", "display_name": "Papa", "relationship": "père" },
-    { "key": "alain", "display_name": "Tonton Alain", "relationship": "oncle" },
-    { "key": "nadine", "display_name": "Tata Nadine", "relationship": "tante" }
+    {
+      "key": "yvonne",
+      "display_name": "Mamie Yvonne",
+      "relationship": "grand-mère"
+    },
+    {
+      "key": "papa",
+      "display_name": "Papa",
+      "relationship": "père"
+    },
+    {
+      "key": "alain",
+      "display_name": "Tonton Alain",
+      "relationship": "oncle"
+    },
+    {
+      "key": "nadine",
+      "display_name": "Tata Nadine",
+      "relationship": "tante"
+    }
   ],
   "themes": [
     {
       "slug": "enfance",
       "label": "Enfance",
       "questions": [
-        { "key": "ecole", "text": "Comment était ton école quand tu étais petite ?" },
-        { "key": "premier-jour", "text": "Raconte-moi ton premier jour d'école." },
-        { "key": "etes", "text": "Que faisais-tu pendant les étés ?" },
-        { "key": "jeux", "text": "À quoi jouais-tu avec tes amis ?" },
-        { "key": "maison", "text": "Comment était la maison de ton enfance ?" },
-        { "key": "peur", "text": "De quoi avais-tu peur quand tu étais enfant ?" }
+        {
+          "key": "ecole",
+          "text": "Comment était ton école quand tu étais petite ?",
+          "follow_ups": [
+            "Comment s'appelait ton institutrice ?",
+            "Que mettais-tu dans ton cartable ?",
+            "Qu'est-ce qui te faisait rire en classe ?"
+          ]
+        },
+        {
+          "key": "premier-jour",
+          "text": "Raconte-moi ton premier jour d'école.",
+          "follow_ups": [
+            "Qui t'a accompagné ce jour-là ?",
+            "Te souviens-tu de ta maîtresse ou de ton maître ?",
+            "Qu'as-tu ressenti en rentrant le soir ?"
+          ]
+        },
+        {
+          "key": "etes",
+          "text": "Que faisais-tu pendant les étés ?",
+          "follow_ups": [
+            "Où passais-tu tes vacances ?",
+            "Avec qui jouais-tu ?",
+            "Quel été t'a le plus marqué ?"
+          ]
+        },
+        {
+          "key": "jeux",
+          "text": "À quoi jouais-tu avec tes amis ?",
+          "follow_ups": [
+            "Quel jeu préférais-tu dehors ?",
+            "Avec qui jouais-tu le plus souvent ?",
+            "Avais-tu un jouet préféré ?"
+          ]
+        },
+        {
+          "key": "maison",
+          "text": "Comment était la maison de ton enfance ?"
+        },
+        {
+          "key": "peur",
+          "text": "De quoi avais-tu peur quand tu étais enfant ?"
+        }
       ]
     },
     {
       "slug": "rencontres",
       "label": "Rencontres",
       "questions": [
-        { "key": "papi", "text": "Comment as-tu rencontré Papi ?" },
-        { "key": "ami", "text": "Qui était ton meilleur ami ?" },
-        { "key": "voyage", "text": "Quelle rencontre a changé ta vie ?" },
-        { "key": "voisins", "text": "Te souviens-tu de tes voisins ?" }
+        {
+          "key": "papi",
+          "text": "Comment as-tu rencontré Papi ?",
+          "follow_ups": [
+            "Qu'as-tu pensé de lui la première fois ?",
+            "Où êtes-vous allés ensuite ?",
+            "Qu'en ont dit vos parents ?"
+          ]
+        },
+        {
+          "key": "ami",
+          "text": "Qui était ton meilleur ami ?"
+        },
+        {
+          "key": "voyage",
+          "text": "Quelle rencontre a changé ta vie ?"
+        },
+        {
+          "key": "voisins",
+          "text": "Te souviens-tu de tes voisins ?"
+        }
       ]
     },
     {
       "slug": "cuisine",
       "label": "Cuisine",
       "questions": [
-        { "key": "plat", "text": "Quel plat te rappelle ton enfance ?" },
-        { "key": "recette", "text": "Quelle recette aimerais-tu me transmettre ?" },
-        { "key": "dimanche", "text": "Comment se passaient les repas du dimanche ?" },
-        { "key": "marche", "text": "Où faisait-on les courses ?" },
-        { "key": "rate", "text": "Raconte-moi un plat complètement raté." }
+        {
+          "key": "plat",
+          "text": "Quel plat te rappelle ton enfance ?",
+          "follow_ups": [
+            "Qui le préparait ?",
+            "Pour quelles occasions ?",
+            "Sais-tu encore le faire ?"
+          ]
+        },
+        {
+          "key": "recette",
+          "text": "Quelle recette aimerais-tu me transmettre ?"
+        },
+        {
+          "key": "dimanche",
+          "text": "Comment se passaient les repas du dimanche ?"
+        },
+        {
+          "key": "marche",
+          "text": "Où faisait-on les courses ?"
+        },
+        {
+          "key": "rate",
+          "text": "Raconte-moi un plat complètement raté."
+        }
       ]
     },
     {
       "slug": "metier",
       "label": "Métier",
       "questions": [
-        { "key": "premier-travail", "text": "Quel a été ton premier travail ?" },
-        { "key": "reve", "text": "Quel métier rêvais-tu de faire ?" },
-        { "key": "collegues", "text": "Te souviens-tu d'un collègue marquant ?" },
-        { "key": "fierte", "text": "De quoi es-tu le plus fier dans ton travail ?" }
+        {
+          "key": "premier-travail",
+          "text": "Quel a été ton premier travail ?",
+          "follow_ups": [
+            "Comment l'as-tu trouvé ?",
+            "Combien gagnais-tu ?",
+            "Qu'as-tu appris là-bas ?"
+          ]
+        },
+        {
+          "key": "reve",
+          "text": "Quel métier rêvais-tu de faire ?"
+        },
+        {
+          "key": "collegues",
+          "text": "Te souviens-tu d'un collègue marquant ?"
+        },
+        {
+          "key": "fierte",
+          "text": "De quoi es-tu le plus fier dans ton travail ?"
+        }
       ]
     },
     {
       "slug": "musique",
       "label": "Musique",
       "questions": [
-        { "key": "chanson", "text": "Quelle chanson te rappelle ta jeunesse ?" },
-        { "key": "concert", "text": "Quel a été ton premier concert ?" },
-        { "key": "danse", "text": "Où allais-tu danser ?" }
+        {
+          "key": "chanson",
+          "text": "Quelle chanson te rappelle ta jeunesse ?",
+          "follow_ups": [
+            "Où l'entendais-tu ?",
+            "Avec qui l'écoutais-tu ?",
+            "Peux-tu m'en chanter un bout ?"
+          ]
+        },
+        {
+          "key": "concert",
+          "text": "Quel a été ton premier concert ?"
+        },
+        {
+          "key": "danse",
+          "text": "Où allais-tu danser ?"
+        }
       ]
     },
     {
       "slug": "fetes",
       "label": "Fêtes",
       "questions": [
-        { "key": "noel", "text": "Comment fêtiez-vous Noël ?" },
-        { "key": "anniversaire", "text": "Quel anniversaire t'a marqué ?" },
-        { "key": "mariage", "text": "Raconte-moi un mariage de la famille." }
+        {
+          "key": "noel",
+          "text": "Comment fêtiez-vous Noël ?",
+          "follow_ups": [
+            "Qui venait à la maison ?",
+            "Que mangiez-vous ?",
+            "Quel cadeau t'a le plus marqué ?"
+          ]
+        },
+        {
+          "key": "anniversaire",
+          "text": "Quel anniversaire t'a marqué ?"
+        },
+        {
+          "key": "mariage",
+          "text": "Raconte-moi un mariage de la famille."
+        }
       ]
     }
   ],
@@ -77,7 +216,13 @@
       "recorded_at": "2026-10-12T15:30:00+00:00",
       "duration_s": 252,
       "text": "L'école, c'était au bourg, à trois kilomètres de la ferme. On y allait à pied, en sabots, même l'hiver. L'institutrice s'appelait Mademoiselle Le Gall. Elle écrivait au tableau avec une craie blanche et on recopiait sur nos ardoises. Quand on avait bien travaillé, elle nous donnait une image.",
-      "keywords": ["école", "bourg", "sabots", "institutrice", "craie"]
+      "keywords": [
+        "école",
+        "bourg",
+        "sabots",
+        "institutrice",
+        "craie"
+      ]
     },
     {
       "person": "yvonne",
@@ -85,7 +230,12 @@
       "recorded_at": "2026-10-09T16:00:00+00:00",
       "duration_s": 318,
       "text": "Ton grand-père, je l'ai rencontré au bal du bourg, le soir du quinze août. Il était venu à vélo depuis le village d'à côté. Il ne savait pas danser, il m'a marché sur les pieds toute la soirée. Mais il est revenu le dimanche suivant, et celui d'après aussi.",
-      "keywords": ["bal", "bourg", "vélo", "danse"]
+      "keywords": [
+        "bal",
+        "bourg",
+        "vélo",
+        "danse"
+      ]
     },
     {
       "person": "papa",
@@ -93,7 +243,12 @@
       "recorded_at": "2026-10-05T18:15:00+00:00",
       "duration_s": 196,
       "text": "Mon premier jour d'école, j'avais un cartable trop grand pour moi. L'institutrice nous a fait asseoir par ordre alphabétique, je me suis retrouvé tout devant. Je me souviens de l'odeur de la craie et du bruit des pupitres. À midi, j'ai pleuré parce que je croyais que c'était fini pour toujours.",
-      "keywords": ["école", "cartable", "institutrice", "craie"]
+      "keywords": [
+        "école",
+        "cartable",
+        "institutrice",
+        "craie"
+      ]
     },
     {
       "person": "papa",
@@ -101,7 +256,11 @@
       "recorded_at": "2026-09-30T19:00:00+00:00",
       "duration_s": 174,
       "text": "Le pot-au-feu du dimanche chez ta grand-mère. Les légumes venaient de la ferme du voisin, la viande cuisait depuis le matin. On mangeait le bouillon d'abord, puis tout le reste. Il y avait toujours trop, et on repartait avec une gamelle.",
-      "keywords": ["pot-au-feu", "dimanche", "ferme"]
+      "keywords": [
+        "pot-au-feu",
+        "dimanche",
+        "ferme"
+      ]
     },
     {
       "person": "alain",
@@ -109,7 +268,11 @@
       "recorded_at": "2026-09-27T14:45:00+00:00",
       "duration_s": 281,
       "text": "J'ai commencé apprenti dans un garage à seize ans. Le patron ne parlait pas beaucoup, il montrait. La première semaine, je n'ai fait que balayer et ranger les clés. Ma première vraie réparation, c'était une mobylette. Quand elle a démarré, j'étais le plus fier du monde.",
-      "keywords": ["garage", "apprenti", "mobylette"]
+      "keywords": [
+        "garage",
+        "apprenti",
+        "mobylette"
+      ]
     },
     {
       "person": "yvonne",
@@ -117,7 +280,12 @@
       "recorded_at": "2026-09-20T15:00:00+00:00",
       "duration_s": 233,
       "text": "Les étés, c'était la moisson. Tout le monde aidait à la ferme, même les enfants. On portait à boire aux hommes dans les champs. Le soir, on retirait nos sabots pleins de paille et on descendait au bourg pour la fête. On dormait parfois dans la grange.",
-      "keywords": ["ferme", "sabots", "moisson", "bourg"]
+      "keywords": [
+        "ferme",
+        "sabots",
+        "moisson",
+        "bourg"
+      ]
     }
   ]
 }

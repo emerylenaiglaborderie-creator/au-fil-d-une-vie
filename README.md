@@ -10,7 +10,10 @@ Application de bureau pour les 12 à 25 ans : partir en quête de son histoire f
 
 Projet de BTS SIO option SLAM.
 
-<p align="center"><img src="docs/captures/quete.png" alt="Écran Ma quête" width="760"></p>
+<p align="center">
+  <img src="docs/captures/quete.png" alt="Écran Ma quête" width="420">
+  <img src="docs/captures/interview.png" alt="Écran Interview" width="420">
+</p>
 
 ## État
 
@@ -18,8 +21,8 @@ Projet de BTS SIO option SLAM.
 |---|---|
 | Base de données, repositories | fait |
 | Mots-clés (TF-IDF) et liens entre récits | fait |
-| Écran « Ma quête » | fait |
-| Interview, Récits, Fiche récit, Graphe | à venir |
+| Écrans « Ma quête » et « Interview » (enregistrement audio) | fait |
+| Récits, Fiche récit, Graphe | à venir |
 | Transcription locale, livre de famille | à venir |
 
 ## Prérequis
@@ -36,6 +39,13 @@ uv sync
 uv run au-fil-d-une-vie          # ta propre quête
 uv run au-fil-d-une-vie --demo   # avec le jeu de démo fictif
 ```
+
+### Micro
+
+L'enregistrement utilise le micro par défaut du système (WAV 16 kHz mono, gardé dans le dossier de données).
+
+- **macOS** : au premier enregistrement, le système demande l'accès au micro pour l'application qui lance le programme (Terminal, iTerm, VS Code...). En cas de refus : Réglages Système, Confidentialité et sécurité, Micro.
+- **Linux** : un serveur audio (PipeWire ou PulseAudio) doit être actif.
 
 ## Développement
 

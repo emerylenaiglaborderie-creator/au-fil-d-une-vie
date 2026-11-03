@@ -41,9 +41,10 @@ def load_demo(conn: sqlite3.Connection, path: Path = DEMO_PATH) -> dict[int, lis
     for position, theme in enumerate(data["themes"], start=1):
         theme_id = themes_repo.add_theme(theme["slug"], theme["label"], position).id
         for q_position, question in enumerate(theme["questions"], start=1):
-            questions[question["key"]] = themes_repo.add_question(
-                theme_id, question["text"], q_position
-            ).id
+            question_id = themes_repo.add_question(theme_id, question["text"], q_position).id
+            questions[question["key"]] = question_id
+            for f_position, text in enumerate(question.get("follow_ups", []), start=1):
+                themes_repo.add_follow_up(question_id, text, f_position)
 
     stories_repo = StoryRepository(conn)
     transcripts_repo = TranscriptRepository(conn)

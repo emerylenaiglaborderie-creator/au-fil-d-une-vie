@@ -7,7 +7,6 @@ from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QHBoxLayout,
-    QLayout,
     QVBoxLayout,
     QWidget,
 )
@@ -21,29 +20,13 @@ from au_fil_d_une_vie.ui.widgets import (
     LeafToggle,
     Picture,
     PrimaryButton,
+    clear_layout,
     eyebrow,
     label,
     link_button,
     section_title,
     soft_shadow,
 )
-
-
-def _clear(layout: QLayout) -> None:
-    """Vide un layout et détruit les widgets qu'il contenait."""
-    while layout.count():
-        item = layout.takeAt(0)
-        if item is None:
-            continue
-        widget = item.widget()
-        child = item.layout()
-        if widget is not None:
-            # Détaché tout de suite : sinon il reste affiché jusqu'à sa destruction.
-            widget.hide()
-            widget.setParent(None)
-            widget.deleteLater()
-        elif child is not None:
-            _clear(child)
 
 
 class QuestScreen(QWidget):
@@ -144,7 +127,7 @@ class QuestScreen(QWidget):
     # Construction
 
     def _fill_card(self, overview: QuestOverview) -> None:
-        _clear(self._card_layout)
+        clear_layout(self._card_layout)
         for button in self._people.buttons():
             self._people.removeButton(button)
         layout = self._card_layout
@@ -207,7 +190,7 @@ class QuestScreen(QWidget):
         )
 
     def _fill_tiles(self, overview: QuestOverview) -> None:
-        _clear(self._tiles)
+        clear_layout(self._tiles)
         for index, progress in enumerate(overview.themes):
             tile = ClickableFrame("tile")
             tile.setAccessibleName(f"{progress.theme.label}, {progress.done} sur {progress.total}")
@@ -226,7 +209,7 @@ class QuestScreen(QWidget):
             self._tiles.setColumnStretch(column, 1)
 
     def _fill_people(self, overview: QuestOverview) -> None:
-        _clear(self._rows)
+        clear_layout(self._rows)
         self._summary.setText(
             f"{plural(overview.story_count, 'récit recueilli', 'récits recueillis')} auprès de "
             f"{plural(overview.interviewed_count, 'personne', 'personnes')}"

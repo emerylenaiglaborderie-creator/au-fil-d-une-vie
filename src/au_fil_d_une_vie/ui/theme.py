@@ -24,6 +24,8 @@ LEAF_TEXT_SOFT = "#3E6B2A"
 LEAF_BORDER = "#B9C79A"
 LEAF_BORDER_HOVER = "#9DBB6A"
 BORDER = "#E3E6D8"
+SOFT_GREEN = "#F1F6E4"
+SOFT_GREEN_BORDER = "#DCE7C3"
 MUTED = "#5B5B5B"
 NAV_MUTED = "#555555"
 
@@ -70,6 +72,11 @@ def color(value: str) -> QColor:
     return QColor(value)
 
 
+def _asset(name: str) -> str:
+    """Chemin d'image utilisable dans une feuille de style (barres obliques partout)."""
+    return (IMAGES / name).as_posix()
+
+
 _LEAF_RADII = """
     border-top-left-radius: 16px;
     border-top-right-radius: 3px;
@@ -104,6 +111,87 @@ QPushButton#outline {{
     font-weight: 500;
 }}
 QPushButton#outline:hover {{ background: {LEAF_HOVER}; }}
+
+QPushButton#outlineLarge {{
+    min-height: 56px;
+    padding: 0 24px;
+    border: 1.5px solid {INK_SOFT};
+    border-radius: 12px;
+    background: transparent;
+    font-size: 16px;
+    font-weight: 600;
+}}
+QPushButton#outlineLarge:hover {{ background: {LEAF_HOVER}; }}
+QPushButton#outlineLarge:disabled, QPushButton#outline:disabled {{
+    color: {LEAF_BORDER};
+    border-color: {LEAF_BORDER};
+}}
+
+QPushButton#mutedLink {{
+    min-height: 56px;
+    padding: 0 16px;
+    border: none;
+    background: transparent;
+    font-size: 15px;
+    font-weight: 500;
+    color: {NAV_MUTED};
+    text-decoration: underline;
+}}
+QPushButton#mutedLink:hover {{ color: {INK}; }}
+
+QPushButton#link:disabled {{ color: {LEAF_BORDER}; }}
+
+QFrame#consent {{
+    background: {SOFT_GREEN};
+    border: 1px solid {SOFT_GREEN_BORDER};
+    border-radius: 14px;
+}}
+QFrame#softCard {{
+    background: {SOFT_GREEN};
+    border: 1px solid {SOFT_GREEN_BORDER};
+    border-radius: 18px;
+}}
+QFrame#plainCard {{
+    background: {WHITE};
+    border: 1px solid {BORDER};
+    border-radius: 18px;
+}}
+QCheckBox::indicator {{
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid {INK_SOFT};
+    border-radius: 4px;
+    background: {WHITE};
+}}
+QCheckBox::indicator:checked {{
+    border-color: {RED_SHADOW};
+    background: {RED};
+    image: url("{_asset("coche.svg")}");
+}}
+QCheckBox::indicator:disabled {{ border-color: {LEAF_BORDER}; }}
+
+QComboBox#personPicker {{
+    min-height: 44px;
+    padding: 0 28px 0 4px;
+    border: none;
+    border-bottom: 1.5px solid {INK_SOFT};
+    border-radius: 0;
+    background: transparent;
+}}
+QComboBox#personPicker:disabled {{ color: {MUTED}; border-bottom-color: {LEAF_BORDER}; }}
+QComboBox#personPicker::drop-down {{ border: none; width: 24px; }}
+QComboBox#personPicker::down-arrow {{
+    image: url("{_asset("chevron.svg")}");
+    width: 12px;
+    height: 12px;
+}}
+QComboBox QAbstractItemView {{
+    background: {WHITE};
+    border: 1px solid {BORDER};
+    selection-background-color: {LEAF_HOVER};
+    selection-color: {INK};
+    padding: 4px;
+}}
 
 QPushButton#link {{
     min-height: 44px;
