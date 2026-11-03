@@ -46,6 +46,11 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "N", "SIM"]
 
+[tool.ruff.lint.per-file-ignores]
+# Surcharges de méthodes Qt (paintEvent, sizeHint...) : noms imposés par Qt.
+"src/au_fil_d_une_vie/ui/**" = ["N802"]
+"tests/test_ui*.py" = ["N802"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
