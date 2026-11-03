@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Outils
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Données locales : jamais de vraie voix ni de vraie donnée dans le dépôt
+*.db
+*.sqlite3
+/data/
+/models/
+*.wav
+!demo/**/*.wav
+
+# Systèmes
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
