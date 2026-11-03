@@ -48,3 +48,10 @@ class TranscriptRepository:
             )
         if cursor.rowcount == 0:
             raise LookupError(f"Aucun texte brut pour le récit {story_id}.")
+
+    def all_display_texts(self) -> dict[int, str]:
+        """Texte à analyser pour chaque récit : version livre si elle existe, sinon brut."""
+        rows = self._conn.execute(
+            "SELECT story_id, COALESCE(book_text, raw_text) AS text FROM transcript"
+        ).fetchall()
+        return {row["story_id"]: row["text"] for row in rows}

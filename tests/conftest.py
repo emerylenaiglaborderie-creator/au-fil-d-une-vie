@@ -53,3 +53,8 @@ def scene(conn: sqlite3.Connection) -> Scene:
         q_ecole=themes.add_question(enfance.id, "Comment était ton école ?", 1),
         q_jeux=themes.add_question(enfance.id, "À quoi jouais-tu ?", 2),
     )
+
+
+@pytest.fixture
+def demo_path() -> Path:
+    return Path(__file__).resolve().parent.parent / "demo" / "demo.json"
