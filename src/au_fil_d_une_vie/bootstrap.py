@@ -14,10 +14,12 @@ from pathlib import Path
 from au_fil_d_une_vie import config
 from au_fil_d_une_vie.repositories import (
     KeywordRepository,
+    NoteRepository,
     PersonRepository,
     ProfileRepository,
     StoryRepository,
     ThemeRepository,
+    TranscriptRepository,
     connect,
 )
 from au_fil_d_une_vie.services.demo import load_demo
@@ -25,6 +27,7 @@ from au_fil_d_une_vie.services.keywords import TextAnalyzer
 from au_fil_d_une_vie.services.links import LinkService
 from au_fil_d_une_vie.services.quest import QuestService
 from au_fil_d_une_vie.services.recording import AudioInput, RecordingService
+from au_fil_d_une_vie.services.stories import StoryService
 from au_fil_d_une_vie.services.transcription import Transcriber
 from au_fil_d_une_vie.services.transcription_queue import TranscriptionQueue
 from au_fil_d_une_vie.services.whisper import DEFAULT_SIZE, WhisperModels
@@ -51,6 +54,7 @@ def _qt_microphone() -> AudioInput:
 class Services:
     quest: QuestService
     links: LinkService
+    stories: StoryService
     recording: RecordingService
     transcription: TranscriptionQueue
     models: WhisperModels
@@ -71,6 +75,7 @@ def build_services(
     model_size: str = DEFAULT_SIZE,
 ) -> Services:
     keywords = KeywordRepository(conn)
+    links = LinkService(keywords)
     models = WhisperModels(models_dir or config.models_dir())
 
     def transcriber() -> Transcriber:
@@ -80,7 +85,16 @@ def build_services(
 
     return Services(
         quest=QuestService(ProfileRepository(conn), PersonRepository(conn), ThemeRepository(conn)),
-        links=LinkService(keywords),
+        links=links,
+        stories=StoryService(
+            StoryRepository(conn),
+            TranscriptRepository(conn),
+            keywords,
+            NoteRepository(conn),
+            links,
+            audio_dir,
+            _analyzer(),
+        ),
         recording=RecordingService(StoryRepository(conn), audio_dir, microphone),
         transcription=TranscriptionQueue(
             lambda: connect(db_path), audio_dir, transcriber, _analyzer

@@ -9,6 +9,7 @@ L'enregistrement est simulé avec un micro factice : aucun son n'est capté.
 import math
 import os
 import sys
+import wave
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -62,6 +63,24 @@ def main() -> None:
     simuler_enregistrement(fenetre, micro)
     capturer("interview")
     fenetre.interview.abandon()
+
+    fenetre.show_screen(MainWindow.STORIES)
+    capturer("recits")
+
+    premier = services.stories.cards()[0]
+    fiche = services.stories.detail(premier.id)
+    assert fiche is not None
+    fiche.audio_path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(fiche.audio_path), "wb") as wav:  # silence, pour activer le lecteur
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(16_000)
+        wav.writeframes(bytes(32_000))
+    services.stories.save_note(premier.id, "Demander à Papa s'il a connu Mademoiselle Le Gall.")
+    fenetre.show_story(premier.id)
+    fenetre.story._player._seek.set_fraction(0.38)
+    fenetre.story._player._position.setText("01:36")
+    capturer("recit")
 
 
 if __name__ == "__main__":

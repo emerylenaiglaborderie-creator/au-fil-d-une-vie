@@ -82,6 +82,12 @@ def rank_candidates(
     ]
 
 
+def lemma_of(label: str, analyzer: TextAnalyzer | None) -> str:
+    """Lemme d'un mot-clé saisi : celui de l'analyseur s'il en trouve un."""
+    terms = analyzer.terms(label) if analyzer else []
+    return " ".join(t.lemma for t in terms) if terms else label.strip().lower()
+
+
 class KeywordService:
     """Propose des mots-clés pour un récit et enregistre les choix de l'utilisateur."""
 
@@ -121,6 +127,4 @@ class KeywordService:
         clean = " ".join(label.split())
         if not clean:
             raise ValueError("Le mot-clé est vide.")
-        terms = self._analyzer.terms(clean)
-        lemma = " ".join(t.lemma for t in terms) if terms else clean.lower()
-        self._keywords.add_validated(story_id, lemma, clean)
+        self._keywords.add_validated(story_id, lemma_of(clean, self._analyzer), clean)

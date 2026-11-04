@@ -15,14 +15,7 @@ from au_fil_d_une_vie.repositories import (
     ThemeRepository,
     TranscriptRepository,
 )
-from au_fil_d_une_vie.services.keywords import TextAnalyzer
-
-
-def lemma_of(label: str, analyzer: TextAnalyzer | None) -> str:
-    """Lemme d'un mot-clé saisi : celui de l'analyseur s'il en trouve un."""
-    terms = analyzer.terms(label) if analyzer else []
-    return " ".join(t.lemma for t in terms) if terms else label.strip().lower()
-
+from au_fil_d_une_vie.services.keywords import TextAnalyzer, lemma_of
 
 DEMO_PATH = Path(__file__).resolve().parent.parent / "data" / "demo.json"
 DEMO_CONSENT = "Consentement fictif (jeu de démonstration)."
