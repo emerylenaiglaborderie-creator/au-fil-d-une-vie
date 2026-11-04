@@ -15,6 +15,7 @@ Projet de BTS SIO option SLAM.
   <img src="docs/captures/interview.png" alt="Écran Interview" width="420">
   <img src="docs/captures/recits.png" alt="Écran Mes récits" width="420">
   <img src="docs/captures/recit.png" alt="Fiche d'un récit" width="420">
+  <img src="docs/captures/graphe.png" alt="Graphe des liens" width="420">
 </p>
 
 ## État
@@ -26,8 +27,30 @@ Projet de BTS SIO option SLAM.
 | Écrans « Ma quête » et « Interview » (enregistrement audio) | fait |
 | Transcription locale (faster-whisper) et mots-clés proposés | fait |
 | Récits (fil, recherche, filtres) et Fiche récit (écoute, correction, mots-clés, carnet, masquer, supprimer) | fait |
-| Graphe | à venir |
+| Graphe des liens (récits et mots communs, networkx) | fait |
 | Livre de famille | à venir |
+
+## Stack technique
+
+| Domaine | Choix | Rôle dans l'application |
+|---|---|---|
+| Langage | **Python 3.12** | Tout le code, de l'interface au calcul des liens |
+| Interface | **PySide6** (Qt 6) : QtWidgets, QSS, QPainter | Écrans, composants maison dessinés (fil, points rouges, étiquettes feuilles) |
+| Polices | Sacramento, Jost, Lora (licence OFL, embarquées) | Écriture manuscrite, interface, texte des récits |
+| Audio | **QtMultimedia** (`QAudioSource`, `QMediaPlayer`) + module `wave` | Enregistrement WAV 16 kHz mono, lecture des récits |
+| Transcription | **faster-whisper** (CTranslate2, processeur, int8), modèle `small` ou `base` | Texte des récits, calculé sur l'ordinateur |
+| Analyse du français | **spaCy** `fr_core_news_md` | Lemmes, noms, entités (personnes, lieux) |
+| Mots-clés | **TF-IDF** écrit en Python | Proposition des mots les plus caractéristiques, validés par l'utilisateur |
+| Liens | Mots partagés pondérés par leur **rareté** (IDF) | Force du lien entre deux récits, « Voir aussi » |
+| Graphe | **networkx** (`spring_layout`, composantes connexes) | Placement des récits et des mots communs |
+| Base de données | **SQLite** via `sqlite3`, SQL écrit à la main, mode WAL | Récits, consentements, textes, mots-clés, carnet |
+| Dossiers de données | **platformdirs** | Emplacement propre à chaque système, jamais en dur |
+| Tests | **pytest**, **pytest-qt** | Services, base, interface (sans écran) |
+| Qualité | **ruff** (lint, format), **mypy** (strict) | Style et typage vérifiés |
+| CI | **GitHub Actions** | Lint, typage et tests sur macOS, Windows et Ubuntu |
+| Dépendances | **uv** (`pyproject.toml`, `uv.lock`) | Installation reproductible en une commande |
+
+Architecture en trois couches (`ui/`, `services/`, `repositories/`) : l'interface ne parle qu'aux services, seuls les repositories touchent la base. Détails dans [`docs/`](docs/).
 
 ## Prérequis
 

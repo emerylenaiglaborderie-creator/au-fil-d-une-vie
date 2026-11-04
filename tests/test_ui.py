@@ -352,3 +352,59 @@ def test_masquer_puis_supprimer_un_recit(fiche: MainWindow, services: Services) 
     ecran._delete()
     assert services.stories.detail(story_id) is None
     assert fiche._stack.currentIndex() == MainWindow.STORIES
+
+
+# Graphe
+
+
+def test_le_graphe_selectionne_le_recit_le_plus_relie(
+    window: MainWindow, services: Services
+) -> None:
+    window.show_screen(MainWindow.GRAPH)
+    ecran = window.graph
+    premier = services.stories.cards()[0]
+    assert ecran._selected == premier.id
+    assert ecran._card_question.text() == premier.question
+    assert ecran._card_person.text() == "Mamie Yvonne"
+
+
+def test_cliquer_un_point_du_graphe_le_selectionne(qtbot: QtBot, window: MainWindow) -> None:
+    window.show_screen(MainWindow.GRAPH)
+    ecran = window.graph
+    vue = ecran._view
+    assert vue is not None
+    autre = next(s for s in vue.stories if s.id != ecran._selected)
+    point = ecran._board._point(autre.x, autre.y).toPoint()
+    qtbot.mouseClick(ecran._board, Qt.MouseButton.LeftButton, pos=point)
+    assert ecran._selected == autre.id
+    assert ecran._card_question.text() == autre.question
+
+
+def test_ouvrir_la_fiche_depuis_le_graphe(qtbot: QtBot, window: MainWindow) -> None:
+    window.show_screen(MainWindow.GRAPH)
+    qtbot.mouseClick(window.graph._open, Qt.MouseButton.LeftButton)
+    assert window._stack.currentIndex() == MainWindow.STORY
+    assert window.story.story_id == window.graph._selected
+
+
+def test_masquer_les_mots_communs(window: MainWindow) -> None:
+    window.show_screen(MainWindow.GRAPH)
+    window.graph._words.setChecked(False)
+    assert not window.graph._board._show_words
+
+
+def test_les_titres_du_graphe_tiennent_sur_deux_lignes(window: MainWindow) -> None:
+    from PySide6.QtGui import QFontMetrics
+
+    from au_fil_d_une_vie.ui import theme
+    from au_fil_d_une_vie.ui.screens.graph import two_lines
+
+    metrics = QFontMetrics(theme.font(theme.SERIF, 15, italic=True))
+    assert two_lines("Court", metrics, 134) == ["Court"]
+    lignes = two_lines(
+        "Quel plat te rappelle ton enfance quand tu étais tout petit ?", metrics, 134
+    )
+    assert len(lignes) == 2 and lignes[1].endswith("…")
+    assert all(metrics.horizontalAdvance(ligne) <= 134 for ligne in lignes)
+    deux = two_lines("Comment as-tu rencontré Papi ?", metrics, 134)
+    assert " ".join(deux) == "Comment as-tu rencontré Papi ?"

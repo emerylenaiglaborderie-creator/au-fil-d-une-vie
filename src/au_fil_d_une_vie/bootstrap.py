@@ -23,6 +23,7 @@ from au_fil_d_une_vie.repositories import (
     connect,
 )
 from au_fil_d_une_vie.services.demo import load_demo
+from au_fil_d_une_vie.services.graph import GraphService
 from au_fil_d_une_vie.services.keywords import TextAnalyzer
 from au_fil_d_une_vie.services.links import LinkService
 from au_fil_d_une_vie.services.quest import QuestService
@@ -55,6 +56,7 @@ class Services:
     quest: QuestService
     links: LinkService
     stories: StoryService
+    graph: GraphService
     recording: RecordingService
     transcription: TranscriptionQueue
     models: WhisperModels
@@ -95,6 +97,7 @@ def build_services(
             audio_dir,
             _analyzer(),
         ),
+        graph=GraphService(StoryRepository(conn), keywords),
         recording=RecordingService(StoryRepository(conn), audio_dir, microphone),
         transcription=TranscriptionQueue(
             lambda: connect(db_path), audio_dir, transcriber, _analyzer

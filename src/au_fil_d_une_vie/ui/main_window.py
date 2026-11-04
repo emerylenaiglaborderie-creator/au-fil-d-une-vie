@@ -16,8 +16,8 @@ from au_fil_d_une_vie.bootstrap import Services
 from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.bridge import TranscriptionBridge
 from au_fil_d_une_vie.ui.model_setup import ModelSetupDialog
+from au_fil_d_une_vie.ui.screens.graph import GraphScreen
 from au_fil_d_une_vie.ui.screens.interview import InterviewScreen
-from au_fil_d_une_vie.ui.screens.placeholder import PlaceholderScreen
 from au_fil_d_une_vie.ui.screens.quest import QuestScreen
 from au_fil_d_une_vie.ui.screens.stories import StoriesScreen
 from au_fil_d_une_vie.ui.screens.story import StoryScreen
@@ -64,6 +64,8 @@ class MainWindow(QMainWindow):
         self.story.back.connect(lambda: self.show_screen(self.STORIES))
         self.story.story_opened.connect(self.show_story)
         self.story.deleted.connect(lambda: self.show_screen(self.STORIES))
+        self.graph = GraphScreen(services.graph, services.stories)
+        self.graph.story_opened.connect(self.show_story)
 
         self._bridge = TranscriptionBridge(services.transcription, self)
         self._bridge.progress.connect(self._transcription_progress)
@@ -74,7 +76,7 @@ class MainWindow(QMainWindow):
             self.quest,
             self.interview,
             self.stories,
-            PlaceholderScreen("Au fil des mots"),
+            self.graph,
             self.story,
         ):
             self._stack.addWidget(self._scrollable(screen))
@@ -122,6 +124,8 @@ class MainWindow(QMainWindow):
             self.story.leave()
         if index == self.STORIES:
             self.stories.refresh()
+        if index == self.GRAPH:
+            self.graph.refresh()
         self._stack.setCurrentIndex(index)
         self._scroll_to_top(index)
         button = self._nav.button(self.STORIES if index == self.STORY else index)
