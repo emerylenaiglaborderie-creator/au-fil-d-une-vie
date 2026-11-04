@@ -2,7 +2,9 @@
 
     uv run python scripts/generer_images.py
 
-- arbre.png : l'arbre seul (sans le texte), fond blanc rendu transparent ;
+- arbre.png : l'arbre du logo (avec son fil et ses points), sans le texte ;
+- arbre-fond.png : l'arbre sans fil ni points, fond du graphe ;
+- icone.png (1024 px), icone.ico (Windows), icone.icns (macOS, si iconutil est là) ;
 - logo.png : le logo complet réduit, fond blanc rendu transparent ;
 - lavis.png : le lavis aquarelle décoratif (remplace le filtre SVG de la maquette).
 
@@ -12,18 +14,25 @@ le même résultat que le mode de fusion multiply de la maquette.
 
 import math
 import random
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-from PySide6.QtCore import QPointF, QRect, Qt
+from PySide6.QtCore import QPointF, QRect, QRectF, Qt
 from PySide6.QtGui import QColor, QGuiApplication, QImage, QPainter, QPainterPath
 
 RACINE = Path(__file__).resolve().parent.parent
 SOURCE = RACINE / "assets" / "logo" / "logo-complet.png"
+SOURCE_ARBRE_SEUL = RACINE / "assets" / "logo" / "arbre-seul.png"
+ICONES = RACINE / "assets" / "icone"
 SORTIE = RACINE / "src" / "au_fil_d_une_vie" / "ui" / "resources" / "images"
 
 ZONE_ARBRE = QRect(380, 190, 1260, 1360)  # en pixels du logo source (2000 x 2000)
 ZONE_LOGO = QRect(380, 190, 1260, 1620)
+ZONE_ICONE = QRect(380, 190, 1260, 1680)  # arbre entier, tronc compris
+COUPURE_LOGO = 1500  # au-dessus : logo (fil, points) ; en dessous : arbre seul (tronc)
 
 
 def blanc_vers_transparent(image: QImage) -> QImage:
@@ -112,6 +121,64 @@ def lavis() -> QImage:
     return flouter(image, 3)
 
 
+def icone(arbre: QImage, taille: int = 1024) -> QImage:
+    """Carré crème aux coins arrondis, l'arbre du logo au centre."""
+    image = QImage(taille, taille, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.transparent)
+    peintre = QPainter(image)
+    peintre.setRenderHint(QPainter.RenderHint.Antialiasing)
+    peintre.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+    marge = taille * 0.06
+    cadre = QRectF(marge, marge, taille - 2 * marge, taille - 2 * marge)
+    peintre.setPen(Qt.PenStyle.NoPen)
+    peintre.setBrush(QColor("#FDFCF8"))
+    peintre.drawRoundedRect(cadre, taille * 0.2, taille * 0.2)
+    hauteur = cadre.height() * 0.80
+    largeur = hauteur * arbre.width() / arbre.height()
+    peintre.drawImage(
+        QRectF(
+            cadre.center().x() - largeur / 2, cadre.top() + cadre.height() * 0.08, largeur, hauteur
+        ),
+        arbre,
+    )
+    peintre.end()
+    return image
+
+
+def arbre_complet(logo: QImage, seul: QImage) -> QImage:
+    """Arbre entier avec son fil : le haut du logo (fil et points), le bas de l'arbre seul.
+
+    Les deux images ont le même cadrage ; dans le logo, le texte cache le pied du tronc.
+    """
+    if seul.isNull():
+        return logo
+    image = seul.convertToFormat(QImage.Format.Format_ARGB32)
+    peintre = QPainter(image)
+    peintre.drawImage(QPointF(0, 0), logo, QRectF(0, 0, logo.width(), COUPURE_LOGO))
+    peintre.end()
+    return image
+
+
+def icns(png: Path, sortie: Path) -> None:
+    """Fichier .icns macOS (avec l'outil système iconutil, seulement sur Mac)."""
+    if shutil.which("iconutil") is None:
+        return
+    with tempfile.TemporaryDirectory() as dossier:
+        jeu = Path(dossier) / "icone.iconset"
+        jeu.mkdir()
+        source = QImage(str(png))
+        for cote in (16, 32, 128, 256, 512):
+            for echelle in (1, 2):
+                nom = f"icon_{cote}x{cote}{'@2x' if echelle == 2 else ''}.png"
+                source.scaled(
+                    cote * echelle,
+                    cote * echelle,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                ).save(str(jeu / nom))
+        subprocess.run(["iconutil", "-c", "icns", str(jeu), "-o", str(sortie)], check=True)
+
+
 def main() -> None:
     _app = QGuiApplication(sys.argv)
     SORTIE.mkdir(parents=True, exist_ok=True)
@@ -122,6 +189,24 @@ def main() -> None:
     blanc_vers_transparent(reduire(source.copy(ZONE_ARBRE), 520)).save(str(SORTIE / "arbre.png"))
     blanc_vers_transparent(reduire(source.copy(ZONE_LOGO), 520)).save(str(SORTIE / "logo.png"))
     lavis().save(str(SORTIE / "lavis.png"))
+
+    seul = QImage(str(SOURCE_ARBRE_SEUL))
+    if not seul.isNull():
+        blanc_vers_transparent(reduire(seul.copy(ZONE_ARBRE), 560)).save(
+            str(SORTIE / "arbre-fond.png")
+        )
+
+    ICONES.mkdir(parents=True, exist_ok=True)
+    arbre = blanc_vers_transparent(reduire(arbre_complet(source, seul).copy(ZONE_ICONE), 900))
+    grande = icone(arbre)
+    grande.save(str(ICONES / "icone.png"))
+    grande.scaled(
+        256, 256, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+    ).save(str(SORTIE / "icone.png"))
+    grande.scaled(
+        256, 256, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+    ).save(str(ICONES / "icone.ico"))
+    icns(ICONES / "icone.png", ICONES / "icone.icns")
     print(f"Images générées dans {SORTIE}")
 
 

@@ -91,7 +91,7 @@ class GraphBoard(QWidget):
         self._view: GraphView | None = None
         self._selected: int | None = None
         self._show_words = True
-        self._tree = QPixmap(str(theme.IMAGES / "arbre.png"))
+        self._tree = QPixmap(str(theme.IMAGES / "arbre-fond.png"))
         self._plate_font = theme.font(theme.SERIF, 15, italic=True)
         self._plate_font_bold = theme.font(theme.SERIF, 15, QFont.Weight.Medium, italic=True)
         self._person_font = theme.font(theme.SANS, 13)
@@ -212,8 +212,8 @@ class GraphBoard(QWidget):
         painter.fillPath(clip, theme.color(theme.WHITE))
         painter.setClipPath(clip)
         if not self._tree.isNull():
-            # Plus pâle que la maquette (0,5) : ses points rouges ressemblaient à des récits.
-            painter.setOpacity(0.3)
+            # L'arbre sans fil ni points : rien ne se confond avec les récits.
+            painter.setOpacity(0.5)
             width = 560
             height = width * self._tree.height() / self._tree.width()
             painter.drawPixmap(

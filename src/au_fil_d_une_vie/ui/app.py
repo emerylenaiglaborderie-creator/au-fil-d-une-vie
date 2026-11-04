@@ -2,6 +2,7 @@
 
 import sys
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from au_fil_d_une_vie.bootstrap import Services
@@ -16,6 +17,7 @@ def create_application(argv: list[str] | None = None) -> QApplication:
     else:
         app = QApplication(argv if argv is not None else sys.argv)
     app.setApplicationName("Au fil d'une vie")
+    app.setWindowIcon(QIcon(str(theme.IMAGES / "icone.png")))
     theme.load_fonts()
     app.setFont(theme.default_font())
     app.setStyleSheet(theme.STYLESHEET)
