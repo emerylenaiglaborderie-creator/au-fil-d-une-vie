@@ -295,10 +295,9 @@ class StoryScreen(QWidget):
         notebook.addWidget(self._note_status)
         self._aside.addLayout(notebook)
 
-        book = outline_button("Ajouter au livre de famille", large=True)
-        book.setEnabled(False)
-        book.setToolTip("Le livre de famille arrive bientôt.")
-        self._aside.addWidget(book)
+        self._book = outline_button("Ajouter au livre de famille", large=True)
+        self._book.clicked.connect(self._toggle_book)
+        self._aside.addWidget(self._book)
 
         privacy = QHBoxLayout()
         privacy.setSpacing(20)
@@ -360,6 +359,14 @@ class StoryScreen(QWidget):
         self._teller.setText(f"{card.person_name} raconte")
         self._question.setText(card.question)
         self._hide.setText("Ne plus masquer" if card.is_hidden else "Masquer ce récit")
+        ready = card.status is StoryStatus.TRANSCRIBED and not card.is_hidden
+        self._book.setEnabled(ready)
+        self._book.setText(
+            "Retirer du livre de famille" if card.in_book else "Ajouter au livre de famille"
+        )
+        self._book.setToolTip(
+            "" if ready else "Un récit entre dans le livre quand son texte est prêt et visible."
+        )
         self._render_text()
         self._render_tags()
         self._related.set_items(
@@ -521,6 +528,13 @@ class StoryScreen(QWidget):
             self._save_note()
 
     # Confidentialité
+
+    def _toggle_book(self) -> None:
+        if self._detail is None:
+            return
+        self._service.set_in_book(self._detail.card.id, not self._detail.card.in_book)
+        self.reload()
+        self.changed.emit()
 
     def _toggle_hidden(self) -> None:
         if self._detail is None:

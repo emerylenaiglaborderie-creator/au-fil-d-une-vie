@@ -66,6 +66,7 @@ class Story:
     audio_path: Path
     is_hidden: bool
     status: StoryStatus
+    in_book: bool = False
 
 
 @dataclass(frozen=True, slots=True)

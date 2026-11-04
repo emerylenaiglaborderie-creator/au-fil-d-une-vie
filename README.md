@@ -28,7 +28,7 @@ Projet de BTS SIO option SLAM.
 | Transcription locale (faster-whisper) et mots-clés proposés | fait |
 | Récits (fil, recherche, filtres) et Fiche récit (écoute, correction, mots-clés, carnet, masquer, supprimer) | fait |
 | Graphe des liens (récits et mots communs, networkx) | fait |
-| Livre de famille | à venir |
+| Livre de famille en PDF (sommaire, Voir aussi, index des mots) : [exemple](docs/captures/livre-exemple.pdf) | fait |
 
 ## Stack technique
 
@@ -43,6 +43,7 @@ Projet de BTS SIO option SLAM.
 | Mots-clés | **TF-IDF** écrit en Python | Proposition des mots les plus caractéristiques, validés par l'utilisateur |
 | Liens | Mots partagés pondérés par leur **rareté** (IDF) | Force du lien entre deux récits, « Voir aussi » |
 | Graphe | **networkx** (`spring_layout`, composantes connexes) | Placement des récits et des mots communs |
+| Livre de famille | **ReportLab** (`multiBuild`, `TableOfContents`, `SimpleIndex`) | PDF avec sommaire, renvois « Voir aussi » et index |
 | Base de données | **SQLite** via `sqlite3`, SQL écrit à la main, mode WAL | Récits, consentements, textes, mots-clés, carnet |
 | Dossiers de données | **platformdirs** | Emplacement propre à chaque système, jamais en dur |
 | Tests | **pytest**, **pytest-qt** | Services, base, interface (sans écran) |

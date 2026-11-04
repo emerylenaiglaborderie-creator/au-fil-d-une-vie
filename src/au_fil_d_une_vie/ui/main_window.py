@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 from au_fil_d_une_vie.bootstrap import Services
 from au_fil_d_une_vie.ui import theme
+from au_fil_d_une_vie.ui.book_dialog import BookDialog
 from au_fil_d_une_vie.ui.bridge import TranscriptionBridge
 from au_fil_d_une_vie.ui.model_setup import ModelSetupDialog
 from au_fil_d_une_vie.ui.screens.graph import GraphScreen
@@ -88,6 +89,16 @@ class MainWindow(QMainWindow):
     def _open_interview(self, question_id: int, person_id: int) -> None:
         self.interview.open(question_id, person_id)
         self.show_screen(self.INTERVIEW)
+
+    def open_book(self) -> BookDialog:
+        dialog = BookDialog(self._services.book, self)
+        dialog.finished.connect(lambda _result: self._after_book())
+        dialog.open()
+        return dialog
+
+    def _after_book(self) -> None:
+        if self._stack.currentIndex() == self.STORY:
+            self.story.reload()
 
     def show_story(self, story_id: int) -> None:
         self.story.open(story_id)
@@ -166,7 +177,9 @@ class MainWindow(QMainWindow):
             row.addWidget(link)
         self._nav.idClicked.connect(self.show_screen)
         row.addSpacing(20)
-        row.addWidget(outline_button("Livre de famille"))
+        book = outline_button("Livre de famille")
+        book.clicked.connect(self.open_book)
+        row.addWidget(book)
         return header
 
     def _footer(self) -> QWidget:

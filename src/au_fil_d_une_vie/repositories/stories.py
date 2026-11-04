@@ -18,6 +18,7 @@ def _to_story(row: sqlite3.Row) -> Story:
         audio_path=Path(row["audio_path"]),
         is_hidden=bool(row["is_hidden"]),
         status=StoryStatus(row["status"]),
+        in_book=bool(row["in_book"]),
     )
 
 
@@ -89,6 +90,12 @@ class StoryRepository:
         with self._conn:
             self._conn.execute(
                 "UPDATE story SET is_hidden = ? WHERE id = ?", (int(hidden), story_id)
+            )
+
+    def set_in_book(self, story_id: int, in_book: bool) -> None:
+        with self._conn:
+            self._conn.execute(
+                "UPDATE story SET in_book = ? WHERE id = ?", (int(in_book), story_id)
             )
 
     def set_status(self, story_id: int, status: StoryStatus) -> None:

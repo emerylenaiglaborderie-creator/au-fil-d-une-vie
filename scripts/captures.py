@@ -2,7 +2,8 @@
 
     uv run python scripts/captures.py [dossier]
 
-Par défaut, les images vont dans docs/captures/ (utilisées par le README).
+Par défaut, les images vont dans docs/captures/ (utilisées par le README), avec
+un livre de famille d'exemple (livre-exemple.pdf), tiré du jeu de démo fictif.
 L'enregistrement est simulé avec un micro factice : aucun son n'est capté.
 """
 
@@ -16,6 +17,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from au_fil_d_une_vie.bootstrap import open_services  # noqa: E402
 from au_fil_d_une_vie.services.fake_audio import FakeAudioInput, tone  # noqa: E402
+from au_fil_d_une_vie.services.book_pdf import BookAssets, render_book  # noqa: E402
+from au_fil_d_une_vie.ui import theme  # noqa: E402
 from au_fil_d_une_vie.ui.app import create_application  # noqa: E402
 from au_fil_d_une_vie.ui.main_window import MainWindow  # noqa: E402
 
@@ -84,6 +87,13 @@ def main() -> None:
 
     fenetre.show_screen(MainWindow.GRAPH)
     capturer("graphe")
+
+    livre = render_book(
+        services.book.gather(),
+        sortie / "livre-exemple.pdf",
+        BookAssets(theme.FONTS, theme.IMAGES / "logo.png"),
+    )
+    print(livre)
 
 
 if __name__ == "__main__":
