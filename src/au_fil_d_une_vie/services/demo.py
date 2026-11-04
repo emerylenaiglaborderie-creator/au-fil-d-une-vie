@@ -12,10 +12,10 @@ from au_fil_d_une_vie.repositories import (
     PersonRepository,
     ProfileRepository,
     StoryRepository,
-    ThemeRepository,
     TranscriptRepository,
 )
 from au_fil_d_une_vie.services.keywords import TextAnalyzer, lemma_of
+from au_fil_d_une_vie.services.tracks import seed_tracks
 
 DEMO_PATH = Path(__file__).resolve().parent.parent / "data" / "demo.json"
 DEMO_CONSENT = "Consentement fictif (jeu de démonstration)."
@@ -41,15 +41,7 @@ def load_demo(
         p["key"]: people_repo.add(p["display_name"], p["relationship"]).id for p in data["people"]
     }
 
-    themes_repo = ThemeRepository(conn)
-    questions: dict[str, int] = {}
-    for position, theme in enumerate(data["themes"], start=1):
-        theme_id = themes_repo.add_theme(theme["slug"], theme["label"], position).id
-        for q_position, question in enumerate(theme["questions"], start=1):
-            question_id = themes_repo.add_question(theme_id, question["text"], q_position).id
-            questions[question["key"]] = question_id
-            for f_position, text in enumerate(question.get("follow_ups", []), start=1):
-                themes_repo.add_follow_up(question_id, text, f_position)
+    questions = seed_tracks(conn)
 
     stories_repo = StoryRepository(conn)
     transcripts_repo = TranscriptRepository(conn)

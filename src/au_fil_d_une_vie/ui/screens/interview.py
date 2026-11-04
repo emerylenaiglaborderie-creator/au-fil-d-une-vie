@@ -68,6 +68,7 @@ class StatusDot(QWidget):
 class InterviewScreen(QWidget):
     story_saved = Signal(int)
     back_to_quest = Signal()
+    manage_people = Signal()
 
     TICK_MS = 100
 
@@ -126,6 +127,10 @@ class InterviewScreen(QWidget):
         self._change = link_button("Changer de question")
         self._change.clicked.connect(self._change_question)
         who.addWidget(self._change)
+        who.addSpacing(16)
+        self._add_person = link_button("Ajouter un proche")
+        self._add_person.clicked.connect(self.manage_people)
+        who.addWidget(self._add_person)
         who.addStretch(1)
         main.addLayout(who)
 
@@ -421,7 +426,7 @@ class InterviewScreen(QWidget):
         if idle:
             self._clock.setText("00:00")
 
-        for widget in (self._person, self._change, self._consent):
+        for widget in (self._person, self._change, self._consent, self._add_person):
             widget.setEnabled(idle)
         for row in self.findChildren(ClickableFrame):
             row.setEnabled(idle)

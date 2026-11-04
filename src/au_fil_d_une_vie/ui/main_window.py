@@ -17,11 +17,13 @@ from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.book_dialog import BookDialog
 from au_fil_d_une_vie.ui.bridge import TranscriptionBridge
 from au_fil_d_une_vie.ui.model_setup import ModelSetupDialog
+from au_fil_d_une_vie.ui.people_dialog import PeopleDialog
 from au_fil_d_une_vie.ui.screens.graph import GraphScreen
 from au_fil_d_une_vie.ui.screens.interview import InterviewScreen
 from au_fil_d_une_vie.ui.screens.quest import QuestScreen
 from au_fil_d_une_vie.ui.screens.stories import StoriesScreen
 from au_fil_d_une_vie.ui.screens.story import StoryScreen
+from au_fil_d_une_vie.ui.screens.welcome import WelcomeScreen
 from au_fil_d_une_vie.ui.widgets import (
     NavLink,
     Picture,
@@ -36,7 +38,7 @@ PRIVACY = "Tout reste sur cet ordinateur. Rien n'est envoyé en ligne."
 
 
 class MainWindow(QMainWindow):
-    QUEST, INTERVIEW, STORIES, GRAPH, STORY = range(5)
+    QUEST, INTERVIEW, STORIES, GRAPH, STORY, WELCOME = range(6)
 
     def __init__(self, services: Services) -> None:
         super().__init__()
@@ -55,9 +57,13 @@ class MainWindow(QMainWindow):
         self.quest = QuestScreen(services.quest)
         self.quest.interview_requested.connect(self._open_interview)
         self.quest.theme_opened.connect(self._open_theme)
+        self.quest.manage_people.connect(self.open_people)
         self.interview = InterviewScreen(services.quest, services.recording)
         self.interview.back_to_quest.connect(lambda: self.show_screen(self.QUEST))
         self.interview.story_saved.connect(self._story_saved)
+        self.interview.manage_people.connect(self.open_people)
+        self.welcome = WelcomeScreen(services.profile, services.people)
+        self.welcome.finished.connect(self._welcome_done)
         self.stories = StoriesScreen(services.stories)
         self.stories.story_opened.connect(self.show_story)
         self.stories.new_interview.connect(lambda: self.show_screen(self.INTERVIEW))
@@ -79,16 +85,40 @@ class MainWindow(QMainWindow):
             self.stories,
             self.graph,
             self.story,
+            self.welcome,
         ):
             self._stack.addWidget(self._scrollable(screen))
         layout.addWidget(self._stack, 1)
         layout.addWidget(self._footer())
         self.setCentralWidget(central)
-        self.show_screen(self.QUEST)
+        if services.profile.get() is None:
+            self._show_welcome()
+        else:
+            self.show_screen(self.QUEST)
 
     def _open_interview(self, question_id: int, person_id: int) -> None:
         self.interview.open(question_id, person_id)
         self.show_screen(self.INTERVIEW)
+
+    def _show_welcome(self) -> None:
+        """Premier lancement : la navigation attend que le profil soit créé."""
+        self._nav_box.hide()
+        self._stack.setCurrentIndex(self.WELCOME)
+
+    def _welcome_done(self) -> None:
+        self._nav_box.show()
+        self.show_screen(self.QUEST)
+
+    def open_people(self) -> PeopleDialog:
+        dialog = PeopleDialog(self._services.people, self)
+        dialog.finished.connect(lambda _result: self._after_people())
+        dialog.open()
+        return dialog
+
+    def _after_people(self) -> None:
+        self.quest.refresh()
+        if not self.interview.is_recording():
+            self.interview.open()
 
     def open_book(self) -> BookDialog:
         dialog = BookDialog(self._services.book, self)
@@ -170,16 +200,21 @@ class MainWindow(QMainWindow):
         row.addWidget(label("Au fil d'une vie", theme.SCRIPT, 42, color=theme.INK_SOFT))
         row.addStretch(1)
 
+        self._nav_box = QWidget()
+        nav = QHBoxLayout(self._nav_box)
+        nav.setContentsMargins(0, 0, 0, 0)
+        nav.setSpacing(12)
         self._nav = QButtonGroup(self)
         for index, text in enumerate(("Ma quête", "Interview", "Récits", "Graphe")):
             link = NavLink(text)
             self._nav.addButton(link, index)
-            row.addWidget(link)
+            nav.addWidget(link)
         self._nav.idClicked.connect(self.show_screen)
-        row.addSpacing(20)
+        nav.addSpacing(20)
         book = outline_button("Livre de famille")
         book.clicked.connect(self.open_book)
-        row.addWidget(book)
+        nav.addWidget(book)
+        row.addWidget(self._nav_box)
         return header
 
     def _footer(self) -> QWidget:

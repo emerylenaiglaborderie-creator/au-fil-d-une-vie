@@ -28,6 +28,7 @@ Projet de BTS SIO option SLAM.
 | Transcription locale (faster-whisper) et mots-clés proposés | fait |
 | Récits (fil, recherche, filtres) et Fiche récit (écoute, correction, mots-clés, carnet, masquer, supprimer) | fait |
 | Graphe des liens (récits et mots communs, networkx) | fait |
+| Premier lancement (prénom, accord parental sous 15 ans) et gestion des proches | fait |
 | Livre de famille en PDF (sommaire, Voir aussi, index des mots) : [exemple](docs/captures/livre-exemple.pdf) | fait |
 
 ## Stack technique
