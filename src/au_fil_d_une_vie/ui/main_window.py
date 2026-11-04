@@ -1,6 +1,7 @@
 """Fenêtre principale : en-tête de navigation, écrans, rappel de confidentialité."""
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
@@ -13,6 +14,7 @@ from PySide6.QtWidgets import (
 
 from au_fil_d_une_vie.bootstrap import Services
 from au_fil_d_une_vie.ui import theme
+from au_fil_d_une_vie.ui.screens.interview import InterviewScreen
 from au_fil_d_une_vie.ui.screens.placeholder import PlaceholderScreen
 from au_fil_d_une_vie.ui.screens.quest import QuestScreen
 from au_fil_d_une_vie.ui.widgets import NavLink, Picture, WashedPage, label, outline_button
@@ -38,11 +40,13 @@ class MainWindow(QMainWindow):
 
         self._stack = QStackedWidget()
         self.quest = QuestScreen(services.quest)
-        self.quest.interview_requested.connect(lambda *_: self.show_screen(self.INTERVIEW))
+        self.quest.interview_requested.connect(self._open_interview)
         self.quest.theme_opened.connect(lambda *_: self.show_screen(self.STORIES))
+        self.interview = InterviewScreen(services.quest, services.recording)
+        self.interview.back_to_quest.connect(lambda: self.show_screen(self.QUEST))
         for screen in (
             self.quest,
-            PlaceholderScreen("Interview"),
+            self.interview,
             PlaceholderScreen("Mes récits"),
             PlaceholderScreen("Au fil des mots"),
         ):
@@ -52,7 +56,28 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         self.show_screen(self.QUEST)
 
+    def _open_interview(self, question_id: int, person_id: int) -> None:
+        self.interview.open(question_id, person_id)
+        self.show_screen(self.INTERVIEW)
+
+    def _may_leave_interview(self) -> bool:
+        """Quitter l'interview pendant un enregistrement : demander, puis effacer la prise."""
+        if not self.interview.is_recording():
+            return True
+        if not self.interview.confirm("Un enregistrement est en cours. L'arrêter et l'effacer ?"):
+            return False
+        self.interview.abandon()
+        return True
+
     def show_screen(self, index: int) -> None:
+        current = self._stack.currentIndex()
+        if current == self.INTERVIEW and index != current and not self._may_leave_interview():
+            button = self._nav.button(current)
+            if button is not None:
+                button.setChecked(True)
+            return
+        if index == self.INTERVIEW and current != self.INTERVIEW:
+            self.interview.open()
         self._stack.setCurrentIndex(index)
         button = self._nav.button(index)
         if button is not None:
@@ -106,3 +131,9 @@ class MainWindow(QMainWindow):
         row.addWidget(text)
         row.addStretch(1)
         return footer
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if self._may_leave_interview():
+            event.accept()
+        else:
+            event.ignore()

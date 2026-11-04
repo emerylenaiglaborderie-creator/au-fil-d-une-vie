@@ -78,3 +78,22 @@ class ThemeRepository:
             """
         ).fetchall()
         return [_to_question(row) for row in rows]
+
+    def add_follow_up(self, question_id: int, text: str, position: int = 0) -> None:
+        with self._conn:
+            self._conn.execute(
+                "INSERT INTO follow_up (question_id, text, position) VALUES (?, ?, ?)",
+                (question_id, text, position),
+            )
+
+    def follow_ups_for(self, question_id: int) -> list[str]:
+        """Relances « Pour creuser » d'une question, dans l'ordre."""
+        rows = self._conn.execute(
+            "SELECT text FROM follow_up WHERE question_id = ? ORDER BY position, id",
+            (question_id,),
+        ).fetchall()
+        return [row["text"] for row in rows]
+
+    def get_theme(self, theme_id: int) -> Theme | None:
+        row = self._conn.execute("SELECT * FROM theme WHERE id = ?", (theme_id,)).fetchone()
+        return _to_theme(row) if row else None

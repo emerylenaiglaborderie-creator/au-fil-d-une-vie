@@ -6,6 +6,13 @@ from dataclasses import dataclass
 from au_fil_d_une_vie.models import Person, Question, Theme
 from au_fil_d_une_vie.repositories import PersonRepository, ProfileRepository, ThemeRepository
 
+DEFAULT_FOLLOW_UPS = (
+    "Tu te souviens d'un détail précis ?",
+    "Qui était là avec toi ?",
+    "Qu'est-ce que tu ressentais à ce moment-là ?",
+)
+"""Relances utilisées quand une question n'a pas les siennes."""
+
 
 @dataclass(frozen=True, slots=True)
 class ThemeProgress:
@@ -82,3 +89,39 @@ class QuestService:
 
         best = min(remaining, key=lambda q: (explored(q), themes[q.theme_id].position))
         return Track(theme=themes[best.theme_id], question=best)
+
+    def track(self, question_id: int) -> Track | None:
+        """Piste correspondant à une question donnée."""
+        question = self._themes.get_question(question_id)
+        if question is None:
+            return None
+        theme = self._themes.get_theme(question.theme_id)
+        return Track(theme=theme, question=question) if theme else None
+
+    def follow_ups(self, question_id: int) -> list[str]:
+        """Relances « Pour creuser » de la question, ou relances générales."""
+        return self._themes.follow_ups_for(question_id) or list(DEFAULT_FOLLOW_UPS)
+
+    def other_tracks(self, exclude_question_id: int | None, limit: int = 4) -> list[Track]:
+        """Autres pistes à proposer : une par thème, les moins explorés d'abord."""
+        themes = {t.id: t for t in self._themes.list_themes()}
+        progress = self._themes.progress()
+
+        def explored(question: Question) -> tuple[float, int]:
+            done, total = progress.get(question.theme_id, (0, 0))
+            return (done / total if total else 0.0, themes[question.theme_id].position)
+
+        seen: set[int] = set()
+        tracks: list[Track] = []
+        candidates = [q for q in self._themes.open_questions() if q.id != exclude_question_id]
+        for question in sorted(candidates, key=explored):
+            if question.theme_id in seen:
+                continue
+            seen.add(question.theme_id)
+            tracks.append(Track(theme=themes[question.theme_id], question=question))
+            if len(tracks) == limit:
+                break
+        return tracks
+
+    def people(self) -> list[Person]:
+        return [p.person for p in self.overview().people]

@@ -55,3 +55,40 @@ def test_quand_tout_est_ecarte_on_repart_du_debut(conn: sqlite3.Connection, scen
     toutes = {scene.q_ecole.id, scene.q_jeux.id}
     piste = service.next_track(skip=toutes)
     assert piste is not None and piste.question.id == scene.q_ecole.id
+
+
+def test_relances_propres_a_la_question_ou_generales(
+    conn: sqlite3.Connection, demo_path: Path
+) -> None:
+    from au_fil_d_une_vie.services.quest import DEFAULT_FOLLOW_UPS
+
+    load_demo(conn, demo_path)
+    service = _service(conn)
+    piste = service.next_track()
+    assert piste is not None
+    assert service.follow_ups(piste.question.id) == [
+        "Où l'entendais-tu ?",
+        "Avec qui l'écoutais-tu ?",
+        "Peux-tu m'en chanter un bout ?",
+    ]
+    sans = next(
+        q for q in ThemeRepository(conn).open_questions() if q.text == "Où allais-tu danser ?"
+    )
+    assert service.follow_ups(sans.id) == list(DEFAULT_FOLLOW_UPS)
+
+
+def test_d_autres_pistes_une_par_theme(conn: sqlite3.Connection, demo_path: Path) -> None:
+    load_demo(conn, demo_path)
+    service = _service(conn)
+    actuelle = service.next_track()
+    assert actuelle is not None
+    autres = service.other_tracks(actuelle.question.id)
+    assert len(autres) == 4
+    assert len({p.theme.id for p in autres}) == 4
+    assert actuelle.question.id not in {p.question.id for p in autres}
+
+
+def test_retrouver_une_piste(conn: sqlite3.Connection, scene: Scene) -> None:
+    piste = _service(conn).track(scene.q_jeux.id)
+    assert piste is not None and piste.theme.slug == "enfance"
+    assert _service(conn).track(9999) is None

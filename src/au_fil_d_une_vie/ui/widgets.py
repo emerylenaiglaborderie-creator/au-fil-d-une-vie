@@ -8,6 +8,7 @@ from PySide6.QtGui import (
     QEnterEvent,
     QFont,
     QFontMetrics,
+    QIcon,
     QKeyEvent,
     QMouseEvent,
     QPainter,
@@ -22,12 +23,31 @@ from PySide6.QtWidgets import (
     QFrame,
     QGraphicsDropShadowEffect,
     QLabel,
+    QLayout,
     QPushButton,
     QSizePolicy,
     QWidget,
 )
 
 from au_fil_d_une_vie.ui import theme
+
+
+def clear_layout(layout: QLayout) -> None:
+    """Vide un layout et détruit les widgets qu'il contenait."""
+    while layout.count():
+        item = layout.takeAt(0)
+        if item is None:
+            continue
+        widget = item.widget()
+        child = item.layout()
+        if widget is not None:
+            # Détaché tout de suite : sinon il reste affiché jusqu'à sa destruction.
+            widget.hide()
+            widget.setParent(None)
+            widget.deleteLater()
+        elif child is not None:
+            clear_layout(child)
+
 
 # Points rouges
 
@@ -80,14 +100,26 @@ class DotRow(QWidget):
 # Boutons
 
 
-_MIC_SVG = (
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" '
-    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-    '<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/>'
-    '<path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>'
-)
+_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">{}</svg>'
+_STROKE = 'fill="none" stroke="{color}" stroke-linecap="round" stroke-linejoin="round"'
 
-ICONS = {"mic": _MIC_SVG}
+ICONS = {
+    "mic": _SVG.format(
+        f'<g {_STROKE} stroke-width="2">'
+        '<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/>'
+        '<path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></g>'
+    ),
+    "pause": _SVG.format(f'<path {_STROKE} stroke-width="3" d="M8 5v14M16 5v14"/>'),
+    "play": _SVG.format(
+        '<path fill="{color}" '
+        'd="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/>'
+    ),
+    "stop": _SVG.format('<rect x="5" y="5" width="14" height="14" rx="2" fill="{color}"/>'),
+}
+
+
+def icon_pixmap(name: str, size: int, color: str = theme.WHITE) -> QPixmap:
+    return svg_pixmap(ICONS[name].replace("{color}", color), size)
 
 
 def svg_pixmap(svg: str, size: int, device_ratio: float = 2.0) -> QPixmap:
@@ -108,7 +140,7 @@ class PrimaryButton(QPushButton):
 
     def __init__(self, text: str, icon: str | None = None, parent: QWidget | None = None) -> None:
         super().__init__(text, parent)
-        self._icon = svg_pixmap(ICONS[icon], 20) if icon else None
+        self._icon = icon_pixmap(icon, 20) if icon else None
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFont(theme.font(theme.SANS, 17, QFont.Weight.DemiBold))
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -215,10 +247,13 @@ def link_button(text: str) -> QPushButton:
     return button
 
 
-def outline_button(text: str) -> QPushButton:
+def outline_button(text: str, icon: str | None = None, large: bool = False) -> QPushButton:
     button = QPushButton(text)
-    button.setObjectName("outline")
+    button.setObjectName("outlineLarge" if large else "outline")
     button.setCursor(Qt.CursorShape.PointingHandCursor)
+    if icon:
+        button.setIcon(QIcon(icon_pixmap(icon, 18, theme.INK_SOFT)))
+        button.setIconSize(QSize(18, 18))
     return button
 
 
@@ -282,7 +317,9 @@ class ClickableFrame(QFrame):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.pos()):
+        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(
+            event.position().toPoint()
+        ):
             self.clicked.emit()
         super().mouseReleaseEvent(event)
 
@@ -368,3 +405,119 @@ class ThreadDivider(QWidget):
         painter.setPen(pen)
         painter.drawPath(path)
         paint_dot(painter, QPointF(end, mid), 10, filled=True)
+
+
+class ThreadWave(QWidget):
+    """Onde sonore dessinée comme un fil qui se termine par un point rouge.
+
+    Au repos : une ligne pointillée. Pendant l'enregistrement, chaque niveau reçu
+    ajoute une ondulation ; le fil défile quand il atteint la droite.
+    """
+
+    STEP = 14.0
+    FILL = 0.72  # part de la largeur occupée par le fil, le reste en pointillés
+    GAIN = 1.8  # la voix parlée reste loin du niveau maximal : on amplifie le tracé
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._levels: list[float] = []
+        self._pending = 0.0
+        self.setMinimumHeight(96)
+        self.setMaximumWidth(560)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setAccessibleName("Onde sonore de l'enregistrement, tracée comme un fil")
+
+    def push(self, level: float) -> None:
+        """Niveau reçu du micro (gardé au maximum jusqu'au prochain `commit`)."""
+        self._pending = max(self._pending, level)
+
+    def commit(self) -> None:
+        """Ajoute une ondulation avec le niveau le plus fort reçu depuis le dernier appel."""
+        self._levels.append(self._pending)
+        self._pending = 0.0
+        capacity = max(2, int(self.width() * self.FILL / self.STEP))
+        del self._levels[:-capacity]
+        self.update()
+
+    def reset(self) -> None:
+        self._levels.clear()
+        self._pending = 0.0
+        self.update()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        mid = self.height() / 2
+        amplitude = mid - 12
+        thread = QPen(theme.color(theme.THREAD), 2.6)
+        thread.setCapStyle(Qt.PenCapStyle.RoundCap)
+        dotted = QPen(theme.color("#BDBDBD"), 2.6)
+        dotted.setCapStyle(Qt.PenCapStyle.RoundCap)
+        dotted.setDashPattern([0.4, 3.6])
+
+        end_x = 9.0
+        if self._levels:
+            points = [QPointF(4, mid)]
+            for i, level in enumerate(self._levels, start=1):
+                side = 1 if i % 2 else -1
+                offset = side * max(2.0, min(1.0, level * self.GAIN) * amplitude)
+                points.append(QPointF(4 + i * self.STEP, mid + offset))
+            path = QPainterPath(points[0])
+            for current, following in zip(points, points[1:], strict=False):
+                middle = (current + following) / 2
+                path.quadTo(current, middle)
+            path.lineTo(points[-1].x(), mid)
+            painter.setPen(thread)
+            painter.drawPath(path)
+            end_x = points[-1].x()
+
+        painter.setPen(dotted)
+        painter.drawLine(QPointF(end_x + 14, mid), QPointF(self.width() - 4, mid))
+        paint_dot(painter, QPointF(end_x, mid), 18, filled=True)
+
+
+class ConsentBox(QFrame):
+    """Case à cocher d'accord du proche, sur fond vert doux, texte cliquable."""
+
+    toggled = Signal(bool)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("consent")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
+        self.setMaximumWidth(560)
+        from PySide6.QtWidgets import QCheckBox, QHBoxLayout
+
+        row = QHBoxLayout(self)
+        row.setContentsMargins(18, 14, 18, 14)
+        row.setSpacing(12)
+        self.checkbox = QCheckBox()
+        self.checkbox.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.checkbox.toggled.connect(self.toggled)
+        row.addWidget(self.checkbox, 0, Qt.AlignmentFlag.AlignTop)
+        self.text = label("", px=16, wrap=True)
+        self.text.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.text.mousePressEvent = lambda event: self.checkbox.toggle()  # type: ignore[method-assign]
+        row.addWidget(self.text, 1)
+
+    def set_text(self, text: str) -> None:
+        self.text.setText(text)
+        self.checkbox.setAccessibleName(text)
+
+    def is_checked(self) -> bool:
+        return self.checkbox.isChecked()
+
+    def set_checked(self, checked: bool) -> None:
+        self.checkbox.setChecked(checked)
+
+
+class LeafBullet(QLabel):
+    """Petite puce en forme de feuille."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(10, 10)
+        self.setStyleSheet(
+            "background: #6FA044; border-top-left-radius: 5px; border-bottom-right-radius: 5px;"
+            "border-top-right-radius: 1px; border-bottom-left-radius: 1px;"
+        )
