@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.services.tracks import TrackError, TrackInfo, TrackService
 from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.leaves import SearchField
@@ -42,7 +43,7 @@ class TracksDialog(QDialog):
         self._service = service
         self._selected: int | None = None
         self._editing_question: int | None = None
-        self.setWindowTitle("Mes pistes")
+        self.setWindowTitle(_("Mes pistes"))
         self.setModal(True)
         self.setFixedSize(960, 760)
         self.setStyleSheet(f"QDialog {{ background: {theme.CREAM}; }}")
@@ -50,11 +51,13 @@ class TracksDialog(QDialog):
         root = QVBoxLayout(self)
         root.setContentsMargins(40, 28, 40, 28)
         root.setSpacing(10)
-        root.addWidget(label("Mes pistes", theme.SCRIPT, 56, color=theme.RED_TEXT))
+        root.addWidget(label(_("Mes pistes"), theme.SCRIPT, 56, color=theme.RED_TEXT))
         root.addWidget(
             label(
-                "Les pistes sont les thèmes de ta quête. Change-les comme tu veux : ajoute les "
-                "tiennes, renomme-les, écris tes propres questions.",
+                _(
+                    "Les pistes sont les thèmes de ta quête. Change-les comme tu veux : ajoute les "
+                    "tiennes, renomme-les, écris tes propres questions."
+                ),
                 theme.SERIF,
                 16,
                 color=theme.MUTED,
@@ -68,7 +71,7 @@ class TracksDialog(QDialog):
 
         left = QVBoxLayout()
         left.setSpacing(8)
-        left.addWidget(section_title("Les pistes"))
+        left.addWidget(section_title(_("Les pistes")))
         self._list = QVBoxLayout()
         self._list.setSpacing(0)
         list_box = QWidget()
@@ -81,12 +84,12 @@ class TracksDialog(QDialog):
         )
         left.addWidget(area, 1)
         new_row = QHBoxLayout()
-        self._new_theme = SearchField("Nouvelle piste (Voyages, Sport...)")
+        self._new_theme = SearchField(_("Nouvelle piste (Voyages, Sport...)"))
         self._new_theme.setClearButtonEnabled(False)
         self._new_theme.setFont(theme.font(theme.SERIF, 16, italic=True))
         self._new_theme.returnPressed.connect(self._add_theme)
         new_row.addWidget(self._new_theme, 1)
-        add_theme = outline_button("Ajouter")
+        add_theme = outline_button(_("Ajouter"))
         add_theme.clicked.connect(self._add_theme)
         new_row.addWidget(add_theme)
         left.addLayout(new_row)
@@ -99,25 +102,25 @@ class TracksDialog(QDialog):
         right.setSpacing(10)
         head = QHBoxLayout()
         head.setSpacing(8)
-        self._theme_name = SearchField("Nom de la piste")
+        self._theme_name = SearchField(_("Nom de la piste"))
         self._theme_name.setClearButtonEnabled(False)
         self._theme_name.setFont(theme.font(theme.SERIF, 22))
         self._theme_name.returnPressed.connect(self._rename_theme)
         head.addWidget(self._theme_name, 1)
-        rename = outline_button("Renommer")
+        rename = outline_button(_("Renommer"))
         rename.clicked.connect(self._rename_theme)
         head.addWidget(rename)
-        self._up = _small_button("↑", "Monter la piste")
+        self._up = _small_button("↑", _("Monter la piste"))
         self._up.clicked.connect(lambda: self._move(-1))
         head.addWidget(self._up)
-        self._down = _small_button("↓", "Descendre la piste")
+        self._down = _small_button("↓", _("Descendre la piste"))
         self._down.clicked.connect(lambda: self._move(1))
         head.addWidget(self._down)
         right.addLayout(head)
         self._theme_info = label("", px=14, color=theme.MUTED)
         right.addWidget(self._theme_info)
         right.addSpacing(6)
-        right.addWidget(section_title("Ses questions"))
+        right.addWidget(section_title(_("Ses questions")))
         self._questions = QVBoxLayout()
         self._questions.setSpacing(0)
         questions_box = QWidget()
@@ -130,16 +133,16 @@ class TracksDialog(QDialog):
         )
         right.addWidget(q_area, 1)
         q_row = QHBoxLayout()
-        self._question = SearchField("Une nouvelle question à poser")
+        self._question = SearchField(_("Une nouvelle question à poser"))
         self._question.setClearButtonEnabled(False)
         self._question.setFont(theme.font(theme.SERIF, 16, italic=True))
         self._question.returnPressed.connect(self._submit_question)
         q_row.addWidget(self._question, 1)
-        self._question_button = outline_button("Ajouter")
+        self._question_button = outline_button(_("Ajouter"))
         self._question_button.clicked.connect(self._submit_question)
         q_row.addWidget(self._question_button)
         right.addLayout(q_row)
-        self._delete_theme = link_button("Supprimer cette piste")
+        self._delete_theme = link_button(_("Supprimer cette piste"))
         self._delete_theme.setStyleSheet(f"color: {theme.RED_TEXT};")
         self._delete_theme.clicked.connect(self._remove_theme)
         right.addWidget(self._delete_theme, 0, Qt.AlignmentFlag.AlignLeft)
@@ -149,7 +152,7 @@ class TracksDialog(QDialog):
         bottom = QHBoxLayout()
         self._error = label("", px=14, color=theme.RED_TEXT, wrap=True)
         bottom.addWidget(self._error, 1)
-        close = link_button("Fermer")
+        close = link_button(_("Fermer"))
         close.clicked.connect(self.accept)
         bottom.addWidget(close)
         root.addLayout(bottom)
@@ -179,11 +182,12 @@ class TracksDialog(QDialog):
             cell.addWidget(name)
             cell.addWidget(
                 label(
-                    f"{plural(len(track.questions), 'question', 'questions')} · "
+                    plural(len(track.questions), _("question"), _("questions"))
+                    + " · "
                     + (
-                        plural(track.story_count, "récit", "récits")
+                        plural(track.story_count, _("récit"), _("récits"))
                         if track.story_count
-                        else "aucun récit"
+                        else _("aucun récit")
                     ),
                     px=13,
                     color=theme.MUTED,
@@ -201,7 +205,7 @@ class TracksDialog(QDialog):
             widget.setEnabled(enabled)
         if track is None:
             self._theme_name.clear()
-            self._theme_info.setText("Crée une piste pour commencer.")
+            self._theme_info.setText(_("Crée une piste pour commencer."))
             self._up.setEnabled(False)
             self._down.setEnabled(False)
             return
@@ -210,9 +214,9 @@ class TracksDialog(QDialog):
         self._up.setEnabled(position > 0)
         self._down.setEnabled(position < len(ids) - 1)
         self._theme_info.setText(
-            "Elle a des récits : on peut la renommer, pas la supprimer."
+            _("Elle a des récits : on peut la renommer, pas la supprimer.")
             if track.story_count
-            else "Pas encore de récit dans cette piste."
+            else _("Pas encore de récit dans cette piste.")
         )
         self._delete_theme.setVisible(track.story_count == 0)
         for info in track.questions:
@@ -222,12 +226,14 @@ class TracksDialog(QDialog):
             line.setSpacing(14)
             line.addWidget(label(info.question.text, theme.SERIF, 17, wrap=True), 1)
             if info.story_count:
-                line.addWidget(eyebrow(plural(info.story_count, "récit", "récits"), spacing_em=0.1))
-            edit = link_button("Modifier")
+                line.addWidget(
+                    eyebrow(plural(info.story_count, _("récit"), _("récits")), spacing_em=0.1)
+                )
+            edit = link_button(_("Modifier"))
             edit.clicked.connect(lambda _c=False, q=info.question: self._start_edit(q.id, q.text))
             line.addWidget(edit)
             if not info.story_count:
-                remove = link_button("Supprimer")
+                remove = link_button(_("Supprimer"))
                 remove.setStyleSheet(f"color: {theme.RED_TEXT};")
                 remove.clicked.connect(
                     lambda _c=False, q=info.question: self._remove_question(q.id)
@@ -236,7 +242,7 @@ class TracksDialog(QDialog):
             self._questions.addWidget(row)
         if not track.questions:
             self._questions.addWidget(
-                label("Pas encore de question.", theme.SERIF, 16, color=theme.MUTED, italic=True)
+                label(_("Pas encore de question."), theme.SERIF, 16, color=theme.MUTED, italic=True)
             )
         self._questions.addStretch(1)
 
@@ -278,7 +284,7 @@ class TracksDialog(QDialog):
     def _remove_theme(self) -> None:
         if self._selected is None:
             return
-        if not self.confirm("Supprimer cette piste et ses questions ?"):
+        if not self.confirm(_("Supprimer cette piste et ses questions ?")):
             return
         if self._run(lambda: self._service.delete_theme(self._selected or 0)):
             self._selected = None
@@ -287,13 +293,13 @@ class TracksDialog(QDialog):
     def _start_edit(self, question_id: int, text: str) -> None:
         self._editing_question = question_id
         self._question.setText(text)
-        self._question_button.setText("Enregistrer")
+        self._question_button.setText(_("Enregistrer"))
         self._question.setFocus()
 
     def _reset_question(self) -> None:
         self._editing_question = None
         self._question.clear()
-        self._question_button.setText("Ajouter")
+        self._question_button.setText(_("Ajouter"))
 
     def _submit_question(self) -> None:
         if self._selected is None:

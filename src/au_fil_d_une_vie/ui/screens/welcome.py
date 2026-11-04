@@ -3,8 +3,11 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QVBoxLayout, QWidget
 
+from au_fil_d_une_vie.i18n import LANGUAGES, _, language
 from au_fil_d_une_vie.services.people import PeopleService, PersonError
 from au_fil_d_une_vie.services.profile import ProfileError, ProfileService
+from au_fil_d_une_vie.services.settings import Settings, SettingsStore
+from au_fil_d_une_vie.services.tracks import TrackService
 from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.leaves import FlowLayout, LeafChip, SearchField
 from au_fil_d_une_vie.ui.person_form import PersonForm
@@ -27,15 +30,23 @@ PARENT_CONSENT = (
 
 class WelcomeScreen(QWidget):
     finished = Signal()
+    language_changed = Signal()
 
     OLDER, YOUNGER = 0, 1
 
     def __init__(
-        self, profile: ProfileService, people: PeopleService, parent: QWidget | None = None
+        self,
+        profile: ProfileService,
+        people: PeopleService,
+        tracks: TrackService,
+        settings: SettingsStore,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._profile = profile
         self._people = people
+        self._tracks = tracks
+        self._settings = settings
 
         root = QHBoxLayout(self)
         root.setContentsMargins(48, 40, 48, 28)
@@ -52,13 +63,25 @@ class WelcomeScreen(QWidget):
 
         main = QVBoxLayout()
         main.setSpacing(10)
-        main.addWidget(eyebrow("Ta quête commence"))
-        main.addWidget(label("Bienvenue", theme.SCRIPT, 104, color=theme.INK_SOFT))
+        top = QHBoxLayout()
+        top.addWidget(eyebrow(_("Ta quête commence")))
+        top.addStretch(1)
+        self._languages = QButtonGroup(self)
+        for index, (code, name) in enumerate(LANGUAGES.items()):
+            toggle = LeafToggle(name)
+            toggle.setChecked(code == language())
+            self._languages.addButton(toggle, index)
+            top.addWidget(toggle)
+        self._languages.idClicked.connect(self._choose_language)
+        main.addLayout(top)
+        main.addWidget(label(_("Bienvenue"), theme.SCRIPT, 104, color=theme.INK_SOFT))
         main.addWidget(
             label(
-                "Au fil d'une vie t'aide à recueillir les souvenirs de ta famille : tu poses "
-                "une question à un proche, tu enregistres sa réponse, et les récits se relient "
-                "entre eux au fil des mots.",
+                _(
+                    "Au fil d'une vie t'aide à recueillir les souvenirs de ta famille : tu poses "
+                    "une question à un proche, tu enregistres sa réponse, et les récits se relient "
+                    "entre eux au fil des mots."
+                ),
                 theme.SERIF,
                 19,
                 color=theme.MUTED,
@@ -75,8 +98,8 @@ class WelcomeScreen(QWidget):
         form.setContentsMargins(34, 30, 34, 30)
         form.setSpacing(14)
 
-        form.addWidget(eyebrow("Comment t'appelles-tu ?", color=theme.MUTED, spacing_em=0.14))
-        self._name = SearchField("Ton prénom")
+        form.addWidget(eyebrow(_("Comment t'appelles-tu ?"), color=theme.MUTED, spacing_em=0.14))
+        self._name = SearchField(_("Ton prénom"))
         self._name.setClearButtonEnabled(False)
         self._name.setFont(theme.font(theme.SERIF, 22, italic=True))
         self._name.setMaximumWidth(360)
@@ -84,11 +107,14 @@ class WelcomeScreen(QWidget):
         form.addWidget(self._name)
         form.addSpacing(8)
 
-        form.addWidget(eyebrow("Quel âge as-tu ?", color=theme.MUTED, spacing_em=0.14))
+        form.addWidget(eyebrow(_("Quel âge as-tu ?"), color=theme.MUTED, spacing_em=0.14))
         ages = QHBoxLayout()
         ages.setSpacing(8)
         self._age = QButtonGroup(self)
-        for age_id, text in ((self.OLDER, "15 ans ou plus"), (self.YOUNGER, "Moins de 15 ans")):
+        for age_id, text in (
+            (self.OLDER, _("15 ans ou plus")),
+            (self.YOUNGER, _("Moins de 15 ans")),
+        ):
             toggle = LeafToggle(text)
             self._age.addButton(toggle, age_id)
             ages.addWidget(toggle)
@@ -101,20 +127,22 @@ class WelcomeScreen(QWidget):
         parent_box = QVBoxLayout(self._parent)
         parent_box.setContentsMargins(22, 18, 22, 18)
         parent_box.setSpacing(10)
-        parent_box.addWidget(label("Pour ton parent", theme.SCRIPT, 40, color=theme.LEAF_TEXT))
+        parent_box.addWidget(label(_("Pour ton parent"), theme.SCRIPT, 40, color=theme.LEAF_TEXT))
         parent_box.addWidget(
             label(
-                "Votre enfant va enregistrer la voix de proches qui acceptent de raconter leurs "
-                "souvenirs. Tout reste sur cet ordinateur : pas de compte, rien n'est envoyé en "
-                "ligne. Chaque proche donne son accord avant chaque enregistrement, et chaque "
-                "récit peut être masqué ou supprimé à tout moment.",
+                _(
+                    "Votre enfant va enregistrer la voix de proches qui acceptent de raconter leurs "
+                    "souvenirs. Tout reste sur cet ordinateur : pas de compte, rien n'est envoyé en "
+                    "ligne. Chaque proche donne son accord avant chaque enregistrement, et chaque "
+                    "récit peut être masqué ou supprimé à tout moment."
+                ),
                 theme.SERIF,
                 16,
                 wrap=True,
             )
         )
         self._parent_consent = ConsentBox()
-        self._parent_consent.set_text(PARENT_CONSENT)
+        self._parent_consent.set_text(_(PARENT_CONSENT))
         self._parent_consent.setStyleSheet(f"QFrame#consent {{ background: {theme.SURFACE}; }}")
         self._parent_consent.toggled.connect(lambda _c: self._update())
         parent_box.addWidget(self._parent_consent)
@@ -122,10 +150,10 @@ class WelcomeScreen(QWidget):
         form.addWidget(self._parent)
         form.addSpacing(8)
 
-        form.addWidget(eyebrow("Qui vas-tu interroger ?", color=theme.MUTED, spacing_em=0.14))
+        form.addWidget(eyebrow(_("Qui vas-tu interroger ?"), color=theme.MUTED, spacing_em=0.14))
         form.addWidget(
             label(
-                "Ajoute quelques proches maintenant, ou plus tard depuis ta quête.",
+                _("Ajoute quelques proches maintenant, ou plus tard depuis ta quête."),
                 px=15,
                 color=theme.MUTED,
             )
@@ -142,7 +170,7 @@ class WelcomeScreen(QWidget):
         form.addSpacing(10)
 
         actions = QHBoxLayout()
-        self._start = PrimaryButton("Commencer ma quête")
+        self._start = PrimaryButton(_("Commencer ma quête"))
         self._start.clicked.connect(self._finish)
         actions.addWidget(self._start)
         actions.addStretch(1)
@@ -192,6 +220,13 @@ class WelcomeScreen(QWidget):
         self._people.delete(person_id)
         self._refresh_people()
 
+    def _choose_language(self, index: int) -> None:
+        chosen = list(LANGUAGES)[index]
+        current = self._settings.load()
+        if chosen != current.language:
+            self._settings.save(Settings(language=chosen, theme=current.theme))
+            self.language_changed.emit()
+
     def _finish(self) -> None:
         try:
             self._profile.save(
@@ -201,4 +236,5 @@ class WelcomeScreen(QWidget):
             self._error.setText(str(error))
             self._error.show()
             return
+        self._tracks.ensure_catalog()  # pistes et questions dans la langue choisie
         self.finished.emit()

@@ -112,7 +112,7 @@ class StoryRepository:
 
     def ids_with_status(self, *statuses: StoryStatus) -> list[int]:
         """Récits dans l'un des statuts donnés, du plus ancien au plus récent."""
-        placeholders = ", ".join("?" for _ in statuses)
+        placeholders = ", ".join("?" for _status in statuses)
         rows = self._conn.execute(
             f"SELECT id FROM story WHERE status IN ({placeholders}) ORDER BY recorded_at, id",
             [s.value for s in statuses],

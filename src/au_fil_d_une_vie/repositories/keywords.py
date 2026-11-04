@@ -112,7 +112,7 @@ class KeywordRepository:
         ids = list(keyword_ids)
         if not ids:
             return {}
-        placeholders = ", ".join("?" for _ in ids)
+        placeholders = ", ".join("?" for _id in ids)
         rows = self._conn.execute(
             f"SELECT id, lemma, label FROM keyword WHERE id IN ({placeholders})", ids
         ).fetchall()

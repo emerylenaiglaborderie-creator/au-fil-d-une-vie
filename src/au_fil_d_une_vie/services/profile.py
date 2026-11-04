@@ -7,6 +7,7 @@ de naissance (minimisation des données) : seulement « moins de 15 ans » ou no
 
 from datetime import UTC, datetime
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.models import Profile
 from au_fil_d_une_vie.repositories import ProfileRepository
 
@@ -27,11 +28,11 @@ class ProfileService:
     def save(self, first_name: str, under_15: bool, parental_consent: bool = False) -> Profile:
         name = " ".join(first_name.split())
         if not name:
-            raise ProfileError("Indique ton prénom.")
+            raise ProfileError(_("Indique ton prénom."))
         if len(name) > MAX_NAME_LENGTH:
-            raise ProfileError("Ce prénom est trop long.")
+            raise ProfileError(_("Ce prénom est trop long."))
         if under_15 and not parental_consent:
-            raise ProfileError("Sous 15 ans, l'accord d'un parent est nécessaire.")
+            raise ProfileError(_("Sous 15 ans, l'accord d'un parent est nécessaire."))
         existing = self._profile.get()
         consent_at = None
         if under_15:
@@ -46,7 +47,7 @@ class ProfileService:
         """Change le prénom, en gardant la tranche d'âge et l'accord parental."""
         existing = self._profile.get()
         if existing is None:
-            raise ProfileError("Aucun profil à modifier.")
+            raise ProfileError(_("Aucun profil à modifier."))
         return self.save(
             first_name, existing.under_15, parental_consent=existing.parental_consent_at is not None
         )

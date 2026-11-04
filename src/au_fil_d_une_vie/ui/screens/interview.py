@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.services.quest import QuestService, Track
 from au_fil_d_une_vie.services.recording import (
     RecordingError,
@@ -108,14 +109,14 @@ class InterviewScreen(QWidget):
         head.setSpacing(4)
         self._eyebrow = eyebrow("")
         head.addWidget(self._eyebrow)
-        head.addWidget(label("Pose-lui la question...", theme.SCRIPT, 64, color=theme.RED_TEXT))
+        head.addWidget(label(_("Pose-lui la question..."), theme.SCRIPT, 64, color=theme.RED_TEXT))
         self._question = label("", theme.SERIF, 52, QFont.Weight.Medium, wrap=True)
         head.addWidget(self._question)
         main.addLayout(head)
 
         who = QHBoxLayout()
         who.setSpacing(12)
-        who.addWidget(eyebrow("Tu interroges", color=theme.MUTED, spacing_em=0.14))
+        who.addWidget(eyebrow(_("Tu interroges"), color=theme.MUTED, spacing_em=0.14))
         self._person = QComboBox()
         self._person.setObjectName("personPicker")
         self._person.setFont(theme.font(theme.SERIF, 19, italic=True))
@@ -124,11 +125,11 @@ class InterviewScreen(QWidget):
         self._person.currentIndexChanged.connect(self._person_changed)
         who.addWidget(self._person)
         who.addSpacing(16)
-        self._change = link_button("Changer de question")
+        self._change = link_button(_("Changer de question"))
         self._change.clicked.connect(self._change_question)
         who.addWidget(self._change)
         who.addSpacing(16)
-        self._add_person = link_button("Ajouter un proche")
+        self._add_person = link_button(_("Ajouter un proche"))
         self._add_person.clicked.connect(self.manage_people)
         who.addWidget(self._add_person)
         who.addStretch(1)
@@ -142,8 +143,10 @@ class InterviewScreen(QWidget):
 
         main.addWidget(
             label(
-                "À la fin, le texte du récit est préparé sur cet ordinateur. Tu pourras "
-                "ensuite le relire et le corriger avant de l'ajouter à tes récits.",
+                _(
+                    "À la fin, le texte du récit est préparé sur cet ordinateur. Tu pourras "
+                    "ensuite le relire et le corriger avant de l'ajouter à tes récits."
+                ),
                 theme.SERIF,
                 16,
                 color=theme.MUTED,
@@ -185,15 +188,15 @@ class InterviewScreen(QWidget):
 
         buttons = QHBoxLayout()
         buttons.setSpacing(14)
-        self._start = PrimaryButton("Commencer l'enregistrement", icon="mic")
+        self._start = PrimaryButton(_("Commencer l'enregistrement"), icon="mic")
         self._start.clicked.connect(self._start_recording)
-        self._pause = outline_button("Pause", icon="pause", large=True)
+        self._pause = outline_button(_("Pause"), icon="pause", large=True)
         self._pause.clicked.connect(self._pause_recording)
-        self._resume = outline_button("Reprendre", icon="play", large=True)
+        self._resume = outline_button(_("Reprendre"), icon="play", large=True)
         self._resume.clicked.connect(self._resume_recording)
-        self._finish = PrimaryButton("Terminer", icon="stop")
+        self._finish = PrimaryButton(_("Terminer"), icon="stop")
         self._finish.clicked.connect(self._finish_recording)
-        self._restart = QPushButton("Recommencer")
+        self._restart = QPushButton(_("Recommencer"))
         self._restart.setObjectName("mutedLink")
         self._restart.setCursor(Qt.CursorShape.PointingHandCursor)
         self._restart.clicked.connect(self._restart_recording)
@@ -210,15 +213,15 @@ class InterviewScreen(QWidget):
         done = QVBoxLayout(self._done)
         done.setContentsMargins(0, 0, 0, 0)
         done.setSpacing(12)
-        done.addWidget(label("Merci !", theme.SCRIPT, 72, color=theme.RED_TEXT))
+        done.addWidget(label(_("Merci !"), theme.SCRIPT, 72, color=theme.RED_TEXT))
         self._done_text = label("", theme.SERIF, 19, wrap=True)
         done.addWidget(self._done_text)
         again = QHBoxLayout()
         again.setSpacing(24)
-        new = PrimaryButton("Nouvelle interview", icon="mic")
+        new = PrimaryButton(_("Nouvelle interview"), icon="mic")
         new.clicked.connect(self._new_interview)
         again.addWidget(new)
-        back = link_button("Retour à ma quête")
+        back = link_button(_("Retour à ma quête"))
         back.clicked.connect(self.back_to_quest)
         again.addWidget(back)
         again.addStretch(1)
@@ -238,7 +241,7 @@ class InterviewScreen(QWidget):
         dig_box = QVBoxLayout(dig)
         dig_box.setContentsMargins(28, 28, 28, 24)
         dig_box.setSpacing(12)
-        dig_box.addWidget(label("Pour creuser", theme.SCRIPT, 48, color=theme.LEAF_TEXT))
+        dig_box.addWidget(label(_("Pour creuser"), theme.SCRIPT, 48, color=theme.LEAF_TEXT))
         for text in self._quest.follow_ups(self._track.question.id):
             line = QHBoxLayout()
             line.setSpacing(12)
@@ -252,14 +255,14 @@ class InterviewScreen(QWidget):
         tips_box = QVBoxLayout(tips)
         tips_box.setContentsMargins(26, 22, 26, 22)
         tips_box.setSpacing(10)
-        tips_box.addWidget(eyebrow("Conseils d'écoute", color=theme.INK_SOFT))
+        tips_box.addWidget(eyebrow(_("Conseils d'écoute"), color=theme.INK_SOFT))
         for tip in LISTENING_TIPS:
-            tips_box.addWidget(label(tip, theme.SERIF, 17, wrap=True))
+            tips_box.addWidget(label(_(tip), theme.SERIF, 17, wrap=True))
         self._aside.addWidget(tips)
 
         others = QVBoxLayout()
         others.setSpacing(0)
-        others.addWidget(section_title("D'autres pistes"))
+        others.addWidget(section_title(_("D'autres pistes")))
         others.addSpacing(6)
         for track in self._quest.other_tracks(self._track.question.id):
             row = ClickableFrame("row")
@@ -302,9 +305,11 @@ class InterviewScreen(QWidget):
     def _show_track(self) -> None:
         if self._track is None:
             self._eyebrow.setText("")
-            self._question.setText("Toutes les pistes ont été explorées.")
+            self._question.setText(_("Toutes les pistes ont été explorées."))
         else:
-            self._eyebrow.setText(f"{self._track.theme.label} · Piste en cours".upper())
+            self._eyebrow.setText(
+                _("{track} · Piste en cours").format(track=self._track.theme.label).upper()
+            )
             self._question.setText(self._track.question.text)
         self._fill_aside()
         self._update_state()
@@ -371,9 +376,11 @@ class InterviewScreen(QWidget):
             return
         name = self._person.currentText()
         self._done_text.setText(
-            f"Le récit de {name} ({format_duration(story.duration_s)}) est gardé sur cet "
-            "ordinateur. Son texte se prépare ici même, sans rien envoyer en ligne : "
-            "tu peux suivre l'avancement en bas de la fenêtre."
+            _(
+                "Le récit de {name} ({duration}) est gardé sur cet ordinateur. Son texte se "
+                "prépare ici même, sans rien envoyer en ligne : tu peux suivre l'avancement "
+                "en bas de la fenêtre."
+            ).format(name=name, duration=format_duration(story.duration_s))
         )
         self._recorder.hide()
         self._done.show()
@@ -381,7 +388,7 @@ class InterviewScreen(QWidget):
         self.story_saved.emit(story.id)
 
     def _restart_recording(self) -> None:
-        if not self.confirm("Effacer cet enregistrement et recommencer ?"):
+        if not self.confirm(_("Effacer cet enregistrement et recommencer ?")):
             return
         self.abandon()
 
@@ -415,7 +422,9 @@ class InterviewScreen(QWidget):
         self._dot.filled = state is RecordingState.RECORDING
         self._dot.update()
         self._status.setText(
-            {"idle": "PRÊT", "recording": "EN COURS", "paused": "EN PAUSE"}[state.value]
+            {"idle": _("Prêt"), "recording": _("En cours"), "paused": _("En pause")}[
+                state.value
+            ].upper()
         )
         self._start.setVisible(idle)
         self._start.setEnabled(ready and self._consent.is_checked())
@@ -439,8 +448,8 @@ class InterviewScreen(QWidget):
         else:
             self._hint.setStyleSheet(f"color: {theme.MUTED};")
             if self._person.count() == 0:
-                self._hint.setText("Ajoute d'abord un proche à interroger.")
+                self._hint.setText(_("Ajoute d'abord un proche à interroger."))
             elif not self._consent.is_checked():
-                self._hint.setText("Coche l'accord de la personne pour commencer.")
+                self._hint.setText(_("Coche l'accord de la personne pour commencer."))
             else:
                 self._hint.setText("")

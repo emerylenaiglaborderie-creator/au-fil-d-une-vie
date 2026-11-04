@@ -27,6 +27,7 @@ class Transcriber(Protocol):
         audio_path: Path,
         on_progress: ProgressCallback | None = None,
         hotwords: str | None = None,
+        language: str = "fr",
     ) -> TranscriptionResult:
-        """`hotwords` : noms propres à bien reconnaître (les proches de la famille)."""
+        """`hotwords` : noms propres à bien reconnaître ; `language` : langue parlée."""
         ...

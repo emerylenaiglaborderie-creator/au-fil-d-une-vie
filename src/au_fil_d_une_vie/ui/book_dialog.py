@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.services.book import BookService
 from au_fil_d_une_vie.services.book_pdf import BookAssets, render_book
 from au_fil_d_une_vie.services.stories import StoryCard
@@ -34,7 +35,7 @@ CHECK_TEXT_WIDTH = 460
 
 def default_book_path() -> Path:
     documents = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
-    return Path(documents or Path.home()) / DEFAULT_NAME
+    return Path(documents or Path.home()) / (_(DEFAULT_NAME))
 
 
 class BookDialog(QDialog):
@@ -47,7 +48,7 @@ class BookDialog(QDialog):
         self._service = service
         self._boxes: dict[int, QCheckBox] = {}
         self._path: Path | None = None
-        self.setWindowTitle("Livre de famille")
+        self.setWindowTitle(_("Livre de famille"))
         self.setModal(True)
         self.setFixedWidth(620)
         self.setStyleSheet(f"QDialog {{ background: {theme.CREAM}; }}")
@@ -55,11 +56,13 @@ class BookDialog(QDialog):
         box = QVBoxLayout(self)
         box.setContentsMargins(40, 30, 40, 30)
         box.setSpacing(12)
-        box.addWidget(label("Le livre de famille", theme.SCRIPT, 56, color=theme.RED_TEXT))
+        box.addWidget(label(_("Le livre de famille"), theme.SCRIPT, 56, color=theme.RED_TEXT))
         box.addWidget(
             label(
-                "Choisis les récits à mettre dans ton livre. Il est créé en PDF sur cet "
-                "ordinateur, avec un sommaire, les liens entre les récits et un index des mots.",
+                _(
+                    "Choisis les récits à mettre dans ton livre. Il est créé en PDF sur cet "
+                    "ordinateur, avec un sommaire, les liens entre les récits et un index des mots."
+                ),
                 theme.SERIF,
                 17,
                 wrap=True,
@@ -70,11 +73,11 @@ class BookDialog(QDialog):
         self._count = label("", px=15, color=theme.MUTED)
         tools.addWidget(self._count)
         tools.addStretch(1)
-        everything = link_button("Tout choisir")
+        everything = link_button(_("Tout choisir"))
         everything.clicked.connect(lambda: self._check_all(True))
         tools.addWidget(everything)
         tools.addSpacing(16)
-        nothing = link_button("Aucun")
+        nothing = link_button(_("Aucun"))
         nothing.clicked.connect(lambda: self._check_all(False))
         tools.addWidget(nothing)
         box.addLayout(tools)
@@ -103,7 +106,7 @@ class BookDialog(QDialog):
         progress.setSpacing(12)
         self._progress = ThreadProgress(200)
         progress.addWidget(self._progress)
-        self._status = label("Mise en page du livre...", px=15, color=theme.MUTED)
+        self._status = label(_("Mise en page du livre..."), px=15, color=theme.MUTED)
         progress.addWidget(self._status, 1)
         self._progress_row.hide()
         box.addWidget(self._progress_row)
@@ -112,11 +115,11 @@ class BookDialog(QDialog):
         done = QHBoxLayout(self._done)
         done.setContentsMargins(0, 0, 0, 0)
         done.setSpacing(20)
-        done.addWidget(label("Ton livre est prêt.", theme.SERIF, 17, color=theme.LEAF_TEXT))
-        open_book = link_button("Ouvrir le livre")
+        done.addWidget(label(_("Ton livre est prêt."), theme.SERIF, 17, color=theme.LEAF_TEXT))
+        open_book = link_button(_("Ouvrir le livre"))
         open_book.clicked.connect(self._open_book)
         done.addWidget(open_book)
-        open_folder = link_button("Afficher le dossier")
+        open_folder = link_button(_("Afficher le dossier"))
         open_folder.clicked.connect(self._open_folder)
         done.addWidget(open_folder)
         done.addStretch(1)
@@ -129,10 +132,10 @@ class BookDialog(QDialog):
 
         actions = QHBoxLayout()
         actions.setSpacing(24)
-        self._create = PrimaryButton("Créer le PDF")
+        self._create = PrimaryButton(_("Créer le PDF"))
         self._create.clicked.connect(self._choose_path)
         actions.addWidget(self._create)
-        close = link_button("Fermer")
+        close = link_button(_("Fermer"))
         close.clicked.connect(self.accept)
         actions.addWidget(close)
         actions.addStretch(1)
@@ -156,8 +159,10 @@ class BookDialog(QDialog):
             self._list.insertWidget(
                 0,
                 label(
-                    "Aucun récit n'a encore son texte. Enregistre une interview : elle pourra "
-                    "entrer dans le livre une fois transcrite.",
+                    _(
+                        "Aucun récit n'a encore son texte. Enregistre une interview : elle pourra "
+                        "entrer dans le livre une fois transcrite."
+                    ),
                     theme.SERIF,
                     16,
                     color=theme.MUTED,
@@ -190,14 +195,14 @@ class BookDialog(QDialog):
 
     def _update_count(self) -> None:
         chosen = sum(1 for b in self._boxes.values() if b.isChecked())
-        self._count.setText(plural(chosen, "récit choisi", "récits choisis"))
+        self._count.setText(plural(chosen, _("récit choisi"), _("récits choisis")))
         self._create.setEnabled(chosen > 0)
 
     # Création
 
     def _choose_path(self) -> None:
-        chosen, _ = QFileDialog.getSaveFileName(
-            self, "Enregistrer le livre", str(default_book_path()), "PDF (*.pdf)"
+        chosen, _filter = QFileDialog.getSaveFileName(
+            self, _("Enregistrer le livre"), str(default_book_path()), "PDF (*.pdf)"
         )
         if chosen:
             path = Path(chosen)
@@ -227,7 +232,7 @@ class BookDialog(QDialog):
 
     def _failed(self, message: str) -> None:
         self._progress_row.hide()
-        self._error.setText(f"Le livre n'a pas pu être créé. ({message})")
+        self._error.setText(_("Le livre n'a pas pu être créé. ({message})").format(message=message))
         self._error.show()
         self._update_count()
 

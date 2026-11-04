@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from au_fil_d_une_vie import config
+from au_fil_d_une_vie import config, i18n
 from au_fil_d_une_vie.repositories import (
     KeywordRepository,
     NoteRepository,
@@ -25,7 +25,7 @@ from au_fil_d_une_vie.repositories import (
 from au_fil_d_une_vie.services.book import BookService
 from au_fil_d_une_vie.services.demo import load_demo
 from au_fil_d_une_vie.services.graph import GraphService
-from au_fil_d_une_vie.services.keywords import TextAnalyzer
+from au_fil_d_une_vie.services.keywords import Term, TextAnalyzer
 from au_fil_d_une_vie.services.links import LinkService
 from au_fil_d_une_vie.services.people import PeopleService
 from au_fil_d_une_vie.services.profile import ProfileService
@@ -40,13 +40,26 @@ from au_fil_d_une_vie.services.whisper import DEFAULT_SIZE, WhisperModels
 
 
 @functools.cache
-def _analyzer() -> TextAnalyzer | None:
-    """Analyseur spaCy si le modèle français est installé, sinon aucun (chargé une fois)."""
+def _spacy(code: str) -> TextAnalyzer | None:
+    """Analyseur spaCy de la langue, si son modèle est installé (chargé une seule fois)."""
     import importlib.util
 
-    from au_fil_d_une_vie.services.spacy_analyzer import DEFAULT_MODEL, SpacyAnalyzer
+    from au_fil_d_une_vie.services.spacy_analyzer import MODELS, SpacyAnalyzer
 
-    return SpacyAnalyzer() if importlib.util.find_spec(DEFAULT_MODEL) else None
+    model = MODELS.get(code)
+    return SpacyAnalyzer(model, code) if model and importlib.util.find_spec(model) else None
+
+
+class CurrentLanguageAnalyzer:
+    """Analyseur qui suit la langue de l'interface (le français si l'anglais manque)."""
+
+    def terms(self, text: str) -> list[Term]:
+        analyzer = _spacy(i18n.language()) or _spacy("fr")
+        return analyzer.terms(text) if analyzer else []
+
+
+def _analyzer() -> TextAnalyzer | None:
+    return CurrentLanguageAnalyzer() if _spacy("fr") or _spacy("en") else None
 
 
 def _qt_microphone() -> AudioInput:
@@ -138,11 +151,14 @@ def open_services(
         folder = Path(tempfile.mkdtemp(prefix="au-fil-demo-"))
         db_path, audio_dir = folder / "demo.db", folder / "audio"
         conn = connect(db_path)
-        load_demo(conn, analyzer=_analyzer())
+        load_demo(conn, analyzer=_spacy("fr"))  # le jeu de démo est en français
     else:
         db_path, audio_dir = config.db_path(), config.audio_dir()
         conn = connect(db_path)
-        seed_tracks(conn)
+        # Au tout premier lancement, les pistes sont chargées à la fin de l'accueil,
+        # dans la langue choisie ; ici, seulement pour un profil qui n'en aurait pas.
+        if ProfileRepository(conn).get() is not None:
+            seed_tracks(conn)
     return build_services(
         conn, db_path, audio_dir, microphone, models_dir, model_size, settings_path
     )

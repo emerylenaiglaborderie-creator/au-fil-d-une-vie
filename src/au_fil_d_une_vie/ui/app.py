@@ -6,6 +6,7 @@ from PySide6.QtCore import QObject, Qt
 from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtWidgets import QApplication
 
+from au_fil_d_une_vie import i18n
 from au_fil_d_une_vie.bootstrap import Services
 from au_fil_d_une_vie.services.settings import Settings
 from au_fil_d_une_vie.ui import theme
@@ -31,14 +32,15 @@ def system_is_dark() -> bool:
 
 
 def apply_preferences(app: QApplication, settings: Settings) -> None:
-    """Palette et feuille de style selon les préférences (avant de créer les widgets)."""
+    """Langue, palette et feuille de style selon les préférences (avant de créer les widgets)."""
+    i18n.set_language(settings.language)
     dark = settings.theme == "dark" or (settings.theme == "auto" and system_is_dark())
     theme.apply(dark)
     app.setStyleSheet(theme.stylesheet())
 
 
 class Controller(QObject):
-    """Garde la fenêtre et la reconstruit quand le thème change.
+    """Garde la fenêtre et la reconstruit quand le thème ou la langue change.
 
     Les couleurs sont lues à la construction des widgets : plutôt que de repeindre
     chaque élément, on recrée la fenêtre, au même écran, avec les mêmes services.

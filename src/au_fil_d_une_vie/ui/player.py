@@ -7,6 +7,7 @@ from PySide6.QtGui import QFont, QMouseEvent, QPainter, QPaintEvent, QPen
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import QAbstractButton, QFrame, QHBoxLayout, QWidget
 
+from au_fil_d_une_vie.i18n import _, language
 from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.text import clock
 from au_fil_d_une_vie.ui.widgets import icon_pixmap, label, outline_button, paint_dot, soft_shadow
@@ -24,7 +25,7 @@ class RoundPlayButton(QAbstractButton):
         self.playing = False
         self._play = icon_pixmap("play", 22)
         self._pause = icon_pixmap("pause", 22)
-        self.setAccessibleName("Lecture")
+        self.setAccessibleName(_("Lecture"))
 
     def sizeHint(self) -> QSize:
         return QSize(56, 59)
@@ -109,7 +110,7 @@ class AudioPlayer(QFrame):
         row.addWidget(self._total)
         self._speed = outline_button("1×")
         self._speed.setMinimumWidth(56)
-        self._speed.setAccessibleName("Vitesse de lecture")
+        self._speed.setAccessibleName(_("Vitesse de lecture"))
         self._speed.clicked.connect(self._next_speed)
         row.addWidget(self._speed)
         self._missing = label("", px=14, color=theme.MUTED)
@@ -133,7 +134,7 @@ class AudioPlayer(QFrame):
         for widget in (self._button, self._seek, self._speed):
             widget.setEnabled(available)
         self._missing.setVisible(not available)
-        self._missing.setText("" if available else "Pas d'enregistrement pour ce récit.")
+        self._missing.setText("" if available else _("Pas d'enregistrement pour ce récit."))
         if self._player is not None and available:
             self._player.setSource(QUrl.fromLocalFile(str(path)))
 
@@ -172,7 +173,8 @@ class AudioPlayer(QFrame):
     def _next_speed(self) -> None:
         self._speed_index = (self._speed_index + 1) % len(SPEEDS)
         speed = SPEEDS[self._speed_index]
-        self._speed.setText(f"{speed:g}×".replace(".", ","))
+        decimal = "," if language() == "fr" else "."
+        self._speed.setText(f"{speed:g}×".replace(".", decimal))
         if self._player is not None:
             self._player.setPlaybackRate(speed)
 
@@ -188,5 +190,5 @@ class AudioPlayer(QFrame):
 
     def _on_state(self, state: QMediaPlayer.PlaybackState) -> None:
         self._button.playing = state == QMediaPlayer.PlaybackState.PlayingState
-        self._button.setAccessibleName("Pause" if self._button.playing else "Lecture")
+        self._button.setAccessibleName(_("Pause") if self._button.playing else _("Lecture"))
         self._button.update()

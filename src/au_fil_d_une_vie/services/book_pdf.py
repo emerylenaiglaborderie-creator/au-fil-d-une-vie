@@ -35,6 +35,8 @@ from reportlab.platypus import (
 )
 from reportlab.platypus.tableofcontents import SimpleIndex, TableOfContents
 
+from au_fil_d_une_vie import i18n
+from au_fil_d_une_vie.i18n import _, plural
 from au_fil_d_une_vie.services.book import Book, BookStory
 
 INK = colors.HexColor("#2F2F2F")
@@ -47,11 +49,6 @@ SOFT_GREEN = colors.HexColor("#F1F6E4")
 SOFT_GREEN_BORDER = colors.HexColor("#DCE7C3")
 MUTED = colors.HexColor("#5B5B5B")
 
-MONTHS = (
-    "janvier", "février", "mars", "avril", "mai", "juin",
-    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
-)  # fmt: skip
-
 MARGIN = 18 * mm
 
 
@@ -63,7 +60,7 @@ class BookAssets:
 
 def long_date(value: Any) -> str:
     local = value.astimezone()
-    return f"{local.day} {MONTHS[local.month - 1]} {local.year}"
+    return i18n.long_date(local.day, local.month, local.year)
 
 
 def _register_fonts(fonts_dir: Path) -> None:
@@ -256,7 +253,7 @@ class BookTemplate(BaseDocTemplate):
 
     @staticmethod
     def _footer(canvas: Any, doc: Any) -> None:
-        width, _ = A5
+        width, _height = A5
         canvas.saveState()
         canvas.setFont("Jost", 8)
         canvas.setFillColor(MUTED)
@@ -277,7 +274,7 @@ def _story_flowables(
     head: list[Flowable] = [
         StoryAnchor(story.id, story.question),
         Paragraph(escape(story.question), styles["question"]),
-        Paragraph(f"{escape(story.person_name)} raconte", styles["teller"]),
+        Paragraph(_("{name} raconte").format(name=escape(story.person_name)), styles["teller"]),
         Paragraph(long_date(story.recorded_at).upper(), styles["meta"]),
     ]
     body = _paragraphs(story.text, styles["body"])
@@ -290,7 +287,7 @@ def _story_flowables(
     if story.note.strip():
         note = Table(
             [
-                [Paragraph("CE QUE J'EN RETIENS", styles["eyebrow"])],
+                [Paragraph(escape(_("Ce que j'en retiens").upper()), styles["eyebrow"])],
                 *[[p] for p in _paragraphs(story.note, styles["note"])],
             ],
             colWidths=["100%"],
@@ -309,10 +306,11 @@ def _story_flowables(
         )
         flow += [Spacer(1, 4), KeepTogether([note])]
     if story.keywords:
-        flow.append(Paragraph("Mots : " + escape(", ".join(story.keywords)), styles["words"]))
+        words = _("Mots : {words}").format(words=", ".join(story.keywords))
+        flow.append(Paragraph(escape(words), styles["words"]))
     if story.see_also:
         flow.append(Spacer(1, 6))
-        flow.append(Paragraph("VOIR AUSSI", styles["eyebrow"]))
+        flow.append(Paragraph(escape(_("Voir aussi").upper()), styles["eyebrow"]))
         flow.append(Spacer(1, 3))
         flow += [
             SeeAlsoLine(s.story_id, f"{s.question} ({s.person_name})", pages)
@@ -336,7 +334,7 @@ def render_book(
     doc = BookTemplate(
         str(path),
         pages,
-        title="Le livre de famille",
+        title=_("Le livre de famille"),
         author=book.author or "",
         subject="Au fil d'une vie",
         creator="Au fil d'une vie",
@@ -349,21 +347,26 @@ def render_book(
         logo = Image(str(assets.logo), width=58 * mm, height=58 * mm * 1620 / 1260, mask="auto")
         story.append(logo)
     story.append(Spacer(1, 8 * mm))
-    story.append(Paragraph("Le livre de famille", styles["title"]))
+    story.append(Paragraph(escape(_("Le livre de famille")), styles["title"]))
     if book.author:
-        story.append(Paragraph(f"recueilli par {escape(book.author)}", styles["subtitle"]))
+        story.append(
+            Paragraph(
+                _("recueilli par {name}").format(name=escape(book.author)), styles["subtitle"]
+            )
+        )
     story.append(Spacer(1, 6 * mm))
     voices = ", ".join(book.people)
     story.append(
         Paragraph(
-            f"{book.story_count} récits · {escape(voices)}<br/>{long_date(book.created_at)}",
+            escape(plural(book.story_count, "récit", "récits"))
+            + f" · {escape(voices)}<br/>{long_date(book.created_at)}",
             styles["small_center"],
         )
     )
     story += [NextPageTemplate("page"), PageBreak()]
 
     # Sommaire
-    story.append(Paragraph("Sommaire", styles["chapter"]))
+    story.append(Paragraph(escape(_("Sommaire")), styles["chapter"]))
     toc = TableOfContents(dotsMinLevel=1)
     toc.levelStyles = [styles["toc1"], styles["toc2"]]
     story += [toc, PageBreak()]
@@ -372,7 +375,7 @@ def render_book(
     for index, chapter in enumerate(book.chapters):
         if on_progress:
             on_progress(chapter.theme_label)
-        story.append(Paragraph("PISTE", styles["eyebrow"]))
+        story.append(Paragraph(escape(_("Piste").upper()), styles["eyebrow"]))
         title = Paragraph(escape(chapter.theme_label), styles["chapter"])
         title.chapter_key = f"piste-{index}"
         story.append(title)
@@ -383,8 +386,12 @@ def render_book(
     if not book.chapters:
         story.append(
             Paragraph(
-                "Aucun récit n'a encore été ajouté au livre. Choisis-en dans l'application, "
-                "puis crée le livre à nouveau.",
+                escape(
+                    _(
+                        "Aucun récit n'a encore été ajouté au livre. Choisis-en dans "
+                        "l'application, puis crée le livre à nouveau."
+                    )
+                ),
                 styles["subtitle"],
             )
         )
@@ -393,7 +400,11 @@ def render_book(
     has_words = any(s.keywords for c in book.chapters for s in c.stories)
     if has_words:
         index_flowable = SimpleIndex(dot=" . ", headers=False, style=[styles["index"]])
-        story += [Paragraph("Index des mots", styles["chapter"]), Spacer(1, 4), index_flowable]
+        story += [
+            Paragraph(escape(_("Index des mots")), styles["chapter"]),
+            Spacer(1, 4),
+            index_flowable,
+        ]
         doc.multiBuild(story, canvasmaker=index_flowable.getCanvasMaker())
     else:
         doc.multiBuild(story)

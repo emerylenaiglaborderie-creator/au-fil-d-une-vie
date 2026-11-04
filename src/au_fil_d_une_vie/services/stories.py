@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.models import StoryRow, StoryStatus
 from au_fil_d_une_vie.repositories import (
     KeywordRepository,
@@ -226,7 +227,7 @@ class StoryService:
         """Enregistre la version livre (on peut reformuler), puis repropose des mots-clés."""
         clean = text.strip()
         if not clean:
-            raise ValueError("Le texte est vide.")
+            raise ValueError(_(_("Le texte est vide.")))
         self._transcripts.save_book_text(story_id, clean)
         self._suggest_again(story_id)
 
@@ -237,7 +238,7 @@ class StoryService:
         """
         clean = text.strip()
         if not clean:
-            raise ValueError("Le texte est vide.")
+            raise ValueError(_(_("Le texte est vide.")))
         if self._transcripts.get(story_id) is None:
             raise LookupError(f"Le récit {story_id} n'a pas encore de texte.")
         self._transcripts.save_raw(story_id, clean)
@@ -257,7 +258,7 @@ class StoryService:
     def add_keyword(self, story_id: int, label: str) -> None:
         clean = " ".join(label.split())
         if not clean:
-            raise ValueError("Le mot-clé est vide.")
+            raise ValueError(_("Le mot-clé est vide."))
         self._keywords.add_validated(story_id, lemma_of(clean, self._analyzer), clean)
 
     def save_note(self, story_id: int, content: str) -> None:

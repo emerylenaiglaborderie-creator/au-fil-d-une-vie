@@ -2,15 +2,27 @@
 
 from pathlib import Path
 
+from au_fil_d_une_vie.i18n import _, language
 from au_fil_d_une_vie.models import Person
 from au_fil_d_une_vie.repositories import PersonRepository, StoryRepository
 from au_fil_d_une_vie.services.stories import fold
 
-RELATIONSHIPS = (
-    "grand-mère", "grand-père", "mère", "père", "tante", "oncle", "sœur", "frère",
-    "cousine", "cousin", "marraine", "parrain", "autre",
-)  # fmt: skip
-"""Liens proposés dans l'interface (on peut aussi en écrire un autre)."""
+RELATIONSHIPS = {
+    "fr": (
+        "grand-mère", "grand-père", "mère", "père", "tante", "oncle", "sœur", "frère",
+        "cousine", "cousin", "marraine", "parrain", "autre",
+    ),
+    "en": (
+        "grandmother", "grandfather", "mother", "father", "aunt", "uncle", "sister", "brother",
+        "cousin", "godmother", "godfather", "other",
+    ),
+}  # fmt: skip
+"""Liens proposés dans l'interface, selon la langue (on peut aussi en écrire un autre)."""
+
+
+def relationships() -> tuple[str, ...]:
+    return RELATIONSHIPS.get(language(), RELATIONSHIPS["fr"])
+
 
 MAX_NAME_LENGTH = 40
 
@@ -49,12 +61,12 @@ class PeopleService:
         self, display_name: str, relationship: str, person_id: int | None = None
     ) -> tuple[str, str]:
         name = " ".join(display_name.split())
-        link = " ".join(relationship.split()).lower() or "autre"
+        link = " ".join(relationship.split()).lower() or relationships()[-1]
         if not name:
-            raise PersonError("Indique comment tu appelles cette personne.")
+            raise PersonError(_("Indique comment tu appelles cette personne."))
         if len(name) > MAX_NAME_LENGTH:
-            raise PersonError("Ce nom est trop long.")
+            raise PersonError(_("Ce nom est trop long."))
         taken = {fold(p.display_name) for p in self._people.list_all() if p.id != person_id}
         if fold(name) in taken:
-            raise PersonError(f"« {name} » est déjà dans tes proches.")
+            raise PersonError(_("« {name} » est déjà dans tes proches.").format(name=name))
         return name, link

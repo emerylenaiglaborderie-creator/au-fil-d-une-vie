@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from au_fil_d_une_vie.i18n import _, language
 from au_fil_d_une_vie.models import Question, Theme
 from au_fil_d_une_vie.repositories import ThemeRepository
 from au_fil_d_une_vie.services.stories import fold
@@ -35,15 +36,24 @@ class TrackInfo:
         return sum(q.story_count for q in self.questions)
 
 
-TRACKS_PATH = Path(__file__).resolve().parent.parent / "data" / "pistes.json"
+DATA = Path(__file__).resolve().parent.parent / "data"
+TRACKS_PATH = DATA / "pistes.json"
+TRACKS_PATHS = {"fr": TRACKS_PATH, "en": DATA / "pistes.en.json"}
 
 
-def seed_tracks(conn: sqlite3.Connection, path: Path = TRACKS_PATH) -> dict[str, int]:
+def catalog_path(code: str | None = None) -> Path:
+    """Catalogue de pistes dans la langue donnée (par défaut, celle de l'interface)."""
+    return TRACKS_PATHS.get(code or language(), TRACKS_PATH)
+
+
+def seed_tracks(
+    target: sqlite3.Connection | ThemeRepository, path: Path = TRACKS_PATH
+) -> dict[str, int]:
     """Ajoute les pistes, questions et relances si la base n'en a pas encore.
 
     Retourne l'identifiant de chaque question selon sa clé (utile au jeu de démo).
     """
-    themes_repo = ThemeRepository(conn)
+    themes_repo = target if isinstance(target, ThemeRepository) else ThemeRepository(target)
     data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     questions: dict[str, int] = {}
     if themes_repo.list_themes():
@@ -75,6 +85,10 @@ class TrackService:
 
     def __init__(self, themes: ThemeRepository) -> None:
         self._themes = themes
+
+    def ensure_catalog(self) -> None:
+        """Charge le catalogue de pistes (dans la langue de l'interface) si la base est vide."""
+        seed_tracks(self._themes, catalog_path())
 
     def all(self) -> list[TrackInfo]:
         counts = self._themes.story_counts_by_question()
@@ -108,8 +122,10 @@ class TrackService:
         track = self._track(theme_id)
         if track.story_count:
             raise TrackError(
-                "Cette piste a déjà des récits : elle ne peut pas être supprimée. "
-                "Tu peux la renommer."
+                _(
+                    "Cette piste a déjà des récits : elle ne peut pas être supprimée. "
+                    "Tu peux la renommer."
+                )
             )
         self._themes.delete_theme(theme_id)
 
@@ -132,7 +148,7 @@ class TrackService:
     def edit_question(self, question_id: int, text: str) -> None:
         question = self._themes.get_question(question_id)
         if question is None:
-            raise TrackError("Cette question n'existe plus.")
+            raise TrackError(_("Cette question n'existe plus."))
         self._themes.update_question(
             question_id, self._check_question(text, question.theme_id, question_id)
         )
@@ -140,8 +156,10 @@ class TrackService:
     def delete_question(self, question_id: int) -> None:
         if self._themes.story_counts_by_question().get(question_id, 0):
             raise TrackError(
-                "Cette question a déjà des récits : elle ne peut pas être supprimée. "
-                "Tu peux corriger son texte."
+                _(
+                    "Cette question a déjà des récits : elle ne peut pas être supprimée. "
+                    "Tu peux corriger son texte."
+                )
             )
         self._themes.delete_question(question_id)
 
@@ -151,26 +169,26 @@ class TrackService:
         for track in self.all():
             if track.theme.id == theme_id:
                 return track
-        raise TrackError("Cette piste n'existe plus.")
+        raise TrackError(_("Cette piste n'existe plus."))
 
     def _check_theme(self, label: str, theme_id: int | None = None) -> str:
         clean = " ".join(label.split())
         if not clean:
-            raise TrackError("Donne un nom à la piste.")
+            raise TrackError(_("Donne un nom à la piste."))
         if len(clean) > MAX_THEME_LENGTH:
-            raise TrackError("Ce nom de piste est trop long.")
+            raise TrackError(_("Ce nom de piste est trop long."))
         taken = {fold(t.label) for t in self._themes.list_themes() if t.id != theme_id}
         if fold(clean) in taken:
-            raise TrackError(f"La piste « {clean} » existe déjà.")
+            raise TrackError(_("La piste « {name} » existe déjà.").format(name=clean))
         return clean
 
     def _check_question(self, text: str, theme_id: int, question_id: int | None = None) -> str:
         clean = " ".join(text.split())
         if not clean:
-            raise TrackError("Écris la question.")
+            raise TrackError(_("Écris la question."))
         if len(clean) > MAX_QUESTION_LENGTH:
-            raise TrackError("Cette question est trop longue.")
+            raise TrackError(_("Cette question est trop longue."))
         taken = {fold(q.text) for q in self._themes.questions_for(theme_id) if q.id != question_id}
         if fold(clean) in taken:
-            raise TrackError("Cette question est déjà dans la piste.")
+            raise TrackError(_("Cette question est déjà dans la piste."))
         return clean

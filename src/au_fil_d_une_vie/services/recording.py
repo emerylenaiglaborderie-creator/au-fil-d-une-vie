@@ -14,6 +14,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.models import Story
 from au_fil_d_une_vie.repositories import StoryRepository
 
@@ -47,10 +48,10 @@ class RecordingError(Exception):
 
 def consent_statement(person_name: str) -> str:
     """Texte exact accepté avant l'enregistrement, conservé avec le récit."""
-    return (
-        f"{person_name} sait que la conversation est enregistrée et est d'accord "
+    return _(
+        "{name} sait que la conversation est enregistrée et est d'accord "
         "pour que son récit soit gardé dans l'application."
-    )
+    ).format(name=person_name)
 
 
 def rms_level(chunk: bytes) -> float:
@@ -97,9 +98,9 @@ class RecordingService:
     def start(self, person_id: int, question_id: int, consent: str) -> None:
         """Démarre une prise. Le consentement du proche est exigé avant tout."""
         if self._state is not RecordingState.IDLE:
-            raise RecordingError("Un enregistrement est déjà en cours.")
+            raise RecordingError(_("Un enregistrement est déjà en cours."))
         if not consent.strip():
-            raise RecordingError("Le consentement du proche est obligatoire.")
+            raise RecordingError(_("Le consentement du proche est obligatoire."))
         self._started_at = self._clock()
         stamp = self._started_at.strftime("%Y%m%d-%H%M%S")
         relative = (
@@ -135,7 +136,7 @@ class RecordingService:
     def finish(self) -> Story:
         """Arrête la prise et crée le récit (avec son consentement) dans la base."""
         if self._state is RecordingState.IDLE or self._take is None or self._path is None:
-            raise RecordingError("Aucun enregistrement en cours.")
+            raise RecordingError(_("Aucun enregistrement en cours."))
         duration = self.elapsed_s
         person_id, question_id, consent = self._take
         path = self._path
@@ -143,7 +144,7 @@ class RecordingService:
         self._close()
         if duration < MIN_DURATION_S:
             path.unlink(missing_ok=True)
-            raise RecordingError("L'enregistrement est trop court.")
+            raise RecordingError(_("L'enregistrement est trop court."))
         return self._stories.create(
             person_id=person_id,
             question_id=question_id,

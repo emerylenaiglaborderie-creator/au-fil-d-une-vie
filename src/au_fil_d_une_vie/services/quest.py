@@ -3,6 +3,7 @@
 from collections.abc import Collection
 from dataclasses import dataclass
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.models import Person, Question, Theme
 from au_fil_d_une_vie.repositories import PersonRepository, ProfileRepository, ThemeRepository
 
@@ -100,7 +101,7 @@ class QuestService:
 
     def follow_ups(self, question_id: int) -> list[str]:
         """Relances « Pour creuser » de la question, ou relances générales."""
-        return self._themes.follow_ups_for(question_id) or list(DEFAULT_FOLLOW_UPS)
+        return self._themes.follow_ups_for(question_id) or [_(text) for text in DEFAULT_FOLLOW_UPS]
 
     def other_tracks(self, exclude_question_id: int | None, limit: int = 4) -> list[Track]:
         """Autres pistes à proposer : une par thème, les moins explorés d'abord."""

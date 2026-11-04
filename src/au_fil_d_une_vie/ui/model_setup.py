@@ -3,6 +3,7 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QWidget
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.services.whisper import APPROX_SIZE_MB, WhisperModels
 from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.bridge import BackgroundTask
@@ -26,12 +27,14 @@ class ModelSetupDialog(QDialog):
         box = QVBoxLayout(self)
         box.setContentsMargins(40, 32, 40, 32)
         box.setSpacing(14)
-        box.addWidget(label("Une dernière étape", theme.SCRIPT, 56, color=theme.RED_TEXT))
+        box.addWidget(label(_("Une dernière étape"), theme.SCRIPT, 56, color=theme.RED_TEXT))
         mb = APPROX_SIZE_MB.get(size, 500)
         box.addWidget(
             label(
-                "Pour transformer tes enregistrements en texte, l'application a besoin d'un "
-                f"modèle de reconnaissance de la voix (environ {mb} Mo).",
+                _(
+                    "Pour transformer tes enregistrements en texte, l'application a besoin d'un "
+                    "modèle de reconnaissance de la voix (environ {mb} Mo)."
+                ).format(mb=mb),
                 theme.SERIF,
                 18,
                 wrap=True,
@@ -39,8 +42,10 @@ class ModelSetupDialog(QDialog):
         )
         box.addWidget(
             label(
-                "Il est téléchargé une seule fois. C'est le seul moment où l'application utilise "
-                "internet : ensuite, tout se fait sur cet ordinateur, même sans connexion.",
+                _(
+                    "Il est téléchargé une seule fois. C'est le seul moment où l'application utilise "
+                    "internet : ensuite, tout se fait sur cet ordinateur, même sans connexion."
+                ),
                 px=15,
                 color=theme.MUTED,
                 wrap=True,
@@ -54,7 +59,7 @@ class ModelSetupDialog(QDialog):
         row.setSpacing(12)
         self._progress = ThreadProgress(220)
         row.addWidget(self._progress)
-        self._status = label("Téléchargement en cours...", px=15, color=theme.MUTED)
+        self._status = label(_("Téléchargement en cours..."), px=15, color=theme.MUTED)
         row.addWidget(self._status, 1)
         self._progress_row.hide()
         box.addWidget(self._progress_row)
@@ -65,18 +70,20 @@ class ModelSetupDialog(QDialog):
 
         actions = QHBoxLayout()
         actions.setSpacing(24)
-        self._download = PrimaryButton("Télécharger le modèle")
+        self._download = PrimaryButton(_("Télécharger le modèle"))
         self._download.clicked.connect(self._start)
         actions.addWidget(self._download)
-        self._later = link_button("Plus tard")
+        self._later = link_button(_("Plus tard"))
         self._later.clicked.connect(self.reject)
         actions.addWidget(self._later)
         actions.addStretch(1)
         box.addLayout(actions)
         box.addWidget(
             label(
-                "Sans ce modèle, tu peux quand même enregistrer : les textes seront préparés "
-                "dès qu'il sera installé.",
+                _(
+                    "Sans ce modèle, tu peux quand même enregistrer : les textes seront préparés "
+                    "dès qu'il sera installé."
+                ),
                 theme.SERIF,
                 14,
                 color=theme.MUTED,
@@ -104,7 +111,9 @@ class ModelSetupDialog(QDialog):
     def _fail(self, message: str) -> None:
         self._progress_row.hide()
         self._error.setText(
-            f"Le téléchargement n'a pas abouti. Vérifie ta connexion et réessaie. ({message})"
+            _(
+                "Le téléchargement n'a pas abouti. Vérifie ta connexion et réessaie. ({message})"
+            ).format(message=message)
         )
         self._error.show()
         self._download.setEnabled(True)

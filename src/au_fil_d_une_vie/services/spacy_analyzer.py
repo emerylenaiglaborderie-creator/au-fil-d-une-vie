@@ -1,32 +1,38 @@
-"""Analyseur de texte français basé sur spaCy (modèle fr_core_news_md).
+"""Analyseur de texte basé sur spaCy, en français ou en anglais.
 
-Le modèle est chargé à la première utilisation : il est téléchargé au premier
-lancement de l'application, jamais présent dans le dépôt.
+Les modèles (fr_core_news_md, en_core_web_sm) sont des dépendances Python installées
+par `uv sync` ; ils sont chargés à la première utilisation.
 """
 
 from typing import Any
 
 from au_fil_d_une_vie.services.keywords import Term
 
-DEFAULT_MODEL = "fr_core_news_md"
+MODELS = {"fr": "fr_core_news_md", "en": "en_core_web_sm"}
+DEFAULT_MODEL = MODELS["fr"]
 KEPT_POS = frozenset({"NOUN", "PROPN"})
-ENTITY_LABELS = frozenset({"PER", "LOC"})
+ENTITY_LABELS = frozenset({"PER", "PERSON", "LOC", "GPE"})  # étiquettes françaises et anglaises
 MIN_LENGTH = 3
 
-ORAL_STOPWORDS = frozenset(
-    {
+ORAL_STOPWORDS = {
+    "fr": frozenset({
         "chose", "truc", "machin", "fois", "moment", "temps", "jour", "an", "année",
         "gens", "monde", "façon", "manière", "côté", "coup", "peu", "bout", "euh", "ben",
-    }
-)  # fmt: skip
+    }),
+    "en": frozenset({
+        "thing", "stuff", "time", "day", "year", "people", "way", "lot", "bit", "kind",
+        "sort", "um", "uh", "yeah", "something", "anything", "everything",
+    }),
+}  # fmt: skip
 """Mots trop vagues à l'oral pour être des mots-clés utiles."""
 
 
 class SpacyAnalyzer:
     """Retient les noms communs et propres, et les entités personnes et lieux."""
 
-    def __init__(self, model_name: str = DEFAULT_MODEL) -> None:
+    def __init__(self, model_name: str = DEFAULT_MODEL, language: str = "fr") -> None:
         self._model_name = model_name
+        self._stopwords = ORAL_STOPWORDS.get(language, ORAL_STOPWORDS["fr"])
         self._nlp: Any = None
 
     def _model(self) -> Any:
@@ -56,7 +62,7 @@ class SpacyAnalyzer:
             ):
                 continue
             lemma = token.lemma_.lower()
-            if lemma in ORAL_STOPWORDS:
+            if lemma in self._stopwords:
                 continue
             label = token.text if token.pos_ == "PROPN" else lemma
             terms.append(Term(lemma=lemma, label=label))
