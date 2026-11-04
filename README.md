@@ -16,6 +16,8 @@ Projet de BTS SIO option SLAM.
   <img src="docs/captures/recits.png" alt="Écran Mes récits" width="420">
   <img src="docs/captures/recit.png" alt="Fiche d'un récit" width="420">
   <img src="docs/captures/graphe.png" alt="Graphe des liens" width="420">
+  <img src="docs/captures/quete-nuit.png" alt="Thème Nuit" width="420">
+  <img src="docs/captures/parametres.png" alt="Paramètres" width="420">
 </p>
 
 ## État
@@ -29,6 +31,7 @@ Projet de BTS SIO option SLAM.
 | Récits (fil, recherche, filtres) et Fiche récit (écoute, correction, mots-clés, carnet, masquer, supprimer) | fait |
 | Graphe des liens (récits et mots communs, networkx) | fait |
 | Premier lancement (prénom, accord parental sous 15 ans) et gestion des proches | fait |
+| Paramètres : prénom, thème Jour / Nuit / comme l'ordinateur ; icône de l'application | fait |
 | Livre de famille en PDF (sommaire, Voir aussi, index des mots) : [exemple](docs/captures/livre-exemple.pdf) | fait |
 
 ## Stack technique

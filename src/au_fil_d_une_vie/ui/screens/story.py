@@ -398,7 +398,7 @@ class StoryScreen(QWidget):
         if not has_text:
             waiting = detail.card.status is StoryStatus.TRANSCRIBING
             self._text.setText(
-                '<p style="color:#5B5B5B"><i>'
+                f'<p style="color:{theme.MUTED}"><i>'
                 + (
                     "Le texte de ce récit est en préparation, sur cet ordinateur…"
                     if waiting

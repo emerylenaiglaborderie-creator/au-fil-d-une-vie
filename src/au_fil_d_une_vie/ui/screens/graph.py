@@ -31,7 +31,6 @@ from au_fil_d_une_vie.ui.widgets import (
 
 BOARD = QSize(780, 580)
 PLATE_WIDTH = 150
-WORD_GREEN = "#CFE3A0"
 
 
 def _curve(start: QPointF, end: QPointF, bend: float = 0.12) -> QPainterPath:
@@ -91,7 +90,7 @@ class GraphBoard(QWidget):
         self._view: GraphView | None = None
         self._selected: int | None = None
         self._show_words = True
-        self._tree = QPixmap(str(theme.IMAGES / "arbre.png"))
+        self._tree = QPixmap(str(theme.IMAGES / "arbre-fond.png"))
         self._plate_font = theme.font(theme.SERIF, 15, italic=True)
         self._plate_font_bold = theme.font(theme.SERIF, 15, QFont.Weight.Medium, italic=True)
         self._person_font = theme.font(theme.SANS, 13)
@@ -209,11 +208,11 @@ class GraphBoard(QWidget):
         frame = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         clip = QPainterPath()
         clip.addRoundedRect(frame, 20, 20)
-        painter.fillPath(clip, theme.color(theme.WHITE))
+        painter.fillPath(clip, theme.color(theme.SURFACE))
         painter.setClipPath(clip)
         if not self._tree.isNull():
-            # Plus pâle que la maquette (0,5) : ses points rouges ressemblaient à des récits.
-            painter.setOpacity(0.3)
+            # L'arbre sans fil ni points : rien ne se confond avec les récits.
+            painter.setOpacity(theme.TREE_OPACITY)
             width = 560
             height = width * self._tree.height() / self._tree.width()
             painter.drawPixmap(
@@ -240,7 +239,7 @@ class GraphBoard(QWidget):
         painter.drawRoundedRect(frame, 20, 20)
 
     def _thread_pen(self, strong: bool, width: float = 2.0) -> QPen:
-        color = QColor(theme.THREAD if strong else "#555555")
+        color = QColor(theme.THREAD if strong else theme.THREAD_SOFT)
         if not strong:
             color.setAlphaF(0.6)
         pen = QPen(color, 2.8 if strong else width)
@@ -285,7 +284,7 @@ class GraphBoard(QWidget):
         paint_dot(painter, center, 26 if selected else 18, filled=node.linked)
 
         rect = self._plate_rect(node)
-        plate = QColor(theme.WHITE)
+        plate = QColor(theme.SURFACE)
         plate.setAlphaF(0.92)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(plate)
@@ -310,7 +309,7 @@ class GraphBoard(QWidget):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(shadow)
         painter.drawPath(_leaf_path(rect.translated(0, 1)))
-        painter.setBrush(theme.color(WORD_GREEN))
+        painter.setBrush(theme.color(theme.WORD_GREEN))
         painter.drawPath(_leaf_path(rect))
         painter.setFont(self._word_font)
         painter.setPen(theme.color(theme.LEAF_TEXT))
@@ -324,7 +323,7 @@ class GraphBoard(QWidget):
         lowest = max(alone, key=lambda s: s.y)
         rect = self._plate_rect(lowest)
         painter.setFont(theme.font(theme.SCRIPT, 30))
-        painter.setPen(theme.color("#4A4A4A"))
+        painter.setPen(theme.color(theme.CHIP_OUTLINE_TEXT))
         painter.drawText(
             QRectF(rect.left() - 20, rect.bottom() + 2, rect.width() + 40, 34),
             Qt.AlignmentFlag.AlignHCenter,
@@ -509,7 +508,7 @@ class LegendMark(QWidget):
             paint_dot(painter, QPointF(8, 9), 16, filled=self._kind == "story")
         elif self._kind == "word":
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(theme.color(WORD_GREEN))
+            painter.setBrush(theme.color(theme.WORD_GREEN))
             painter.drawPath(_leaf_path(QRectF(0, 2, 28, 16), 12, 2))
         else:
             painter.setPen(QPen(theme.color(theme.THREAD), 2))

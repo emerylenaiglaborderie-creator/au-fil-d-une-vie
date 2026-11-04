@@ -41,3 +41,12 @@ class ProfileService:
                 else datetime.now(UTC)
             )
         return self._profile.save(name, under_15, consent_at)
+
+    def rename(self, first_name: str) -> Profile:
+        """Change le prénom, en gardant la tranche d'âge et l'accord parental."""
+        existing = self._profile.get()
+        if existing is None:
+            raise ProfileError("Aucun profil à modifier.")
+        return self.save(
+            first_name, existing.under_15, parental_consent=existing.parental_consent_at is not None
+        )
