@@ -437,3 +437,78 @@ def test_creer_le_livre_depuis_la_fenetre(
         dialogue.export_to(chemin)
     assert chemin.read_bytes().startswith(b"%PDF")
     assert dialogue._done.isVisibleTo(dialogue)
+
+
+# Premier lancement et proches
+
+
+@pytest.fixture
+def neuve(qtbot: QtBot, tmp_path: Path, micro: FakeAudioInput) -> Iterator[MainWindow]:
+    """Fenêtre sur une base neuve, comme au tout premier lancement."""
+    from au_fil_d_une_vie.bootstrap import build_services
+    from au_fil_d_une_vie.repositories import connect
+    from au_fil_d_une_vie.services.tracks import seed_tracks
+
+    create_application([])
+    db = tmp_path / "base.db"
+    conn = connect(db)
+    seed_tracks(conn)
+    services = build_services(conn, db, tmp_path / "audio", lambda: micro, tmp_path / "modeles")
+    fenetre = MainWindow(services)
+    fenetre.interview.confirm = lambda question: True  # type: ignore[method-assign]
+    qtbot.addWidget(fenetre)
+    yield fenetre
+    fenetre.interview.abandon()
+
+
+def test_le_premier_lancement_commence_par_l_accueil(neuve: MainWindow) -> None:
+    assert neuve._stack.currentIndex() == MainWindow.WELCOME
+    assert not neuve._nav_box.isVisibleTo(neuve)
+    assert not neuve.welcome._start.isEnabled()
+
+
+def test_sous_15_ans_l_accord_parental_debloque_le_depart(qtbot: QtBot, neuve: MainWindow) -> None:
+    accueil = neuve.welcome
+    accueil._name.setText("Léo")
+    accueil._age.button(accueil.YOUNGER).click()
+    assert accueil._parent.isVisibleTo(accueil)
+    assert not accueil._start.isEnabled()
+    accueil._parent_consent.set_checked(True)
+    assert accueil._start.isEnabled()
+
+
+def test_terminer_l_accueil_ouvre_la_quete(qtbot: QtBot, neuve: MainWindow) -> None:
+    accueil = neuve.welcome
+    accueil._name.setText("Camille")
+    accueil._age.button(accueil.OLDER).click()
+    accueil._person.set_values("Mamie Jeanne", "grand-mère")
+    accueil._person.button.click()
+    accueil._person.set_values("mamie jeanne", "grand-mère")
+    accueil._person.button.click()  # doublon refusé
+    assert accueil._person_error.isVisibleTo(accueil)
+    qtbot.mouseClick(accueil._start, Qt.MouseButton.LeftButton)
+
+    assert neuve._stack.currentIndex() == MainWindow.QUEST
+    assert neuve._nav_box.isVisibleTo(neuve)
+    assert neuve.quest._hello.text() == "Bonjour Camille"
+    assert neuve.quest._track is not None
+    assert neuve.quest._people.checkedId() > 0
+
+
+def test_gerer_les_proches(qtbot: QtBot, window: MainWindow, services: Services) -> None:
+    dialogue = window.open_people()
+    qtbot.addWidget(dialogue)
+    dialogue.form.set_values("Cousine Inès", "cousine")
+    dialogue.form.button.click()
+    noms = [p.display_name for p, _ in services.people.all()]
+    assert "Cousine Inès" in noms
+
+    ines = next(p for p, _ in services.people.all() if p.display_name == "Cousine Inès")
+    dialogue._start_edit(ines)
+    dialogue.form.set_values("Inès", "cousine")
+    dialogue.form.button.click()
+    assert "Inès" in [p.display_name for p, _ in services.people.all()]
+
+    dialogue.confirm = lambda question: True  # type: ignore[method-assign]
+    dialogue._delete(next(p for p, _ in services.people.all() if p.display_name == "Inès"), 0)
+    assert "Inès" not in [p.display_name for p, _ in services.people.all()]

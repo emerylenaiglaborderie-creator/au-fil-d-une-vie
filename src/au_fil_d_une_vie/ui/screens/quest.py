@@ -32,6 +32,7 @@ from au_fil_d_une_vie.ui.widgets import (
 class QuestScreen(QWidget):
     interview_requested = Signal(int, int)  # question_id, person_id
     theme_opened = Signal(int)  # theme_id
+    manage_people = Signal()
 
     TILE_COLUMNS = 3
 
@@ -90,6 +91,9 @@ class QuestScreen(QWidget):
         self._rows = QVBoxLayout()
         self._rows.setSpacing(0)
         aside.addLayout(self._rows)
+        manage = link_button("+ Ajouter ou modifier un proche")
+        manage.clicked.connect(self.manage_people)
+        aside.addWidget(manage, 0, Qt.AlignmentFlag.AlignLeft)
         aside.addStretch(1)
         aside_box = QWidget()
         aside_box.setLayout(aside)
@@ -162,7 +166,9 @@ class QuestScreen(QWidget):
         toggles.addStretch(1)
         ask.addLayout(toggles)
         if not overview.people:
-            ask.addWidget(label("Ajoute d'abord un proche à interroger.", px=15, color=theme.MUTED))
+            add = link_button("Ajoute d'abord un proche à interroger")
+            add.clicked.connect(self.manage_people)
+            ask.addWidget(add, 0, Qt.AlignmentFlag.AlignLeft)
         layout.addLayout(ask)
 
         actions = QHBoxLayout()

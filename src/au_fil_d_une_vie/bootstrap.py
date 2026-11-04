@@ -27,9 +27,12 @@ from au_fil_d_une_vie.services.demo import load_demo
 from au_fil_d_une_vie.services.graph import GraphService
 from au_fil_d_une_vie.services.keywords import TextAnalyzer
 from au_fil_d_une_vie.services.links import LinkService
+from au_fil_d_une_vie.services.people import PeopleService
+from au_fil_d_une_vie.services.profile import ProfileService
 from au_fil_d_une_vie.services.quest import QuestService
 from au_fil_d_une_vie.services.recording import AudioInput, RecordingService
 from au_fil_d_une_vie.services.stories import StoryService
+from au_fil_d_une_vie.services.tracks import seed_tracks
 from au_fil_d_une_vie.services.transcription import Transcriber
 from au_fil_d_une_vie.services.transcription_queue import TranscriptionQueue
 from au_fil_d_une_vie.services.whisper import DEFAULT_SIZE, WhisperModels
@@ -55,6 +58,8 @@ def _qt_microphone() -> AudioInput:
 @dataclass
 class Services:
     quest: QuestService
+    profile: ProfileService
+    people: PeopleService
     links: LinkService
     stories: StoryService
     graph: GraphService
@@ -99,6 +104,8 @@ def build_services(
     return Services(
         quest=QuestService(ProfileRepository(conn), PersonRepository(conn), ThemeRepository(conn)),
         links=links,
+        profile=ProfileService(ProfileRepository(conn)),
+        people=PeopleService(PersonRepository(conn), StoryRepository(conn), audio_dir),
         stories=stories,
         graph=GraphService(StoryRepository(conn), keywords),
         book=BookService(stories, ProfileRepository(conn), ThemeRepository(conn)),
@@ -128,4 +135,5 @@ def open_services(
     else:
         db_path, audio_dir = config.db_path(), config.audio_dir()
         conn = connect(db_path)
+        seed_tracks(conn)
     return build_services(conn, db_path, audio_dir, microphone, models_dir, model_size)
