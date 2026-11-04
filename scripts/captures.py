@@ -82,6 +82,9 @@ def main() -> None:
     fenetre.story._player._position.setText("01:36")
     capturer("recit")
 
+    fenetre.show_screen(MainWindow.GRAPH)
+    capturer("graphe")
+
 
 if __name__ == "__main__":
     main()
