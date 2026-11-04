@@ -113,7 +113,7 @@ class LeafChip(ClickableFrame):
         self.text_label.setFont(theme.font(theme.SANS, 13 if small else 15))
         colors = {
             "filled": theme.LEAF_TEXT,
-            "outline": "#4A4A4A",
+            "outline": theme.CHIP_OUTLINE_TEXT,
             "proposed": theme.NAV_MUTED,
             "add": theme.NAV_MUTED,
         }

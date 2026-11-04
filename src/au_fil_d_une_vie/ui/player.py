@@ -76,7 +76,7 @@ class SeekBar(QWidget):
         mid = self.height() / 2
         left, right = 8.0, self.width() - 8.0
         x = left + (right - left) * self._fraction
-        track = QPen(theme.color("#D8DCCB"), 3)
+        track = QPen(theme.color(theme.TRACK), 3)
         track.setCapStyle(Qt.PenCapStyle.RoundCap)
         played = QPen(theme.color(theme.THREAD), 3)
         played.setCapStyle(Qt.PenCapStyle.RoundCap)

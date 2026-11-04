@@ -31,6 +31,7 @@ from au_fil_d_une_vie.services.people import PeopleService
 from au_fil_d_une_vie.services.profile import ProfileService
 from au_fil_d_une_vie.services.quest import QuestService
 from au_fil_d_une_vie.services.recording import AudioInput, RecordingService
+from au_fil_d_une_vie.services.settings import SettingsStore
 from au_fil_d_une_vie.services.stories import StoryService
 from au_fil_d_une_vie.services.tracks import seed_tracks
 from au_fil_d_une_vie.services.transcription import Transcriber
@@ -68,6 +69,7 @@ class Services:
     transcription: TranscriptionQueue
     models: WhisperModels
     model_size: str
+    settings: SettingsStore
     db_path: Path
     audio_dir: Path
 
@@ -82,6 +84,7 @@ def build_services(
     microphone: Callable[[], AudioInput] = _qt_microphone,
     models_dir: Path | None = None,
     model_size: str = DEFAULT_SIZE,
+    settings_path: Path | None = None,
 ) -> Services:
     keywords = KeywordRepository(conn)
     links = LinkService(keywords)
@@ -115,6 +118,7 @@ def build_services(
         ),
         models=models,
         model_size=model_size,
+        settings=SettingsStore(settings_path or config.settings_path()),
         db_path=db_path,
         audio_dir=audio_dir,
     )
@@ -125,6 +129,7 @@ def open_services(
     microphone: Callable[[], AudioInput] = _qt_microphone,
     model_size: str = DEFAULT_SIZE,
     models_dir: Path | None = None,
+    settings_path: Path | None = None,
 ) -> Services:
     """Base de l'utilisateur, ou base temporaire remplie avec le jeu de démo."""
     if demo:
@@ -136,4 +141,6 @@ def open_services(
         db_path, audio_dir = config.db_path(), config.audio_dir()
         conn = connect(db_path)
         seed_tracks(conn)
-    return build_services(conn, db_path, audio_dir, microphone, models_dir, model_size)
+    return build_services(
+        conn, db_path, audio_dir, microphone, models_dir, model_size, settings_path
+    )

@@ -1,11 +1,12 @@
 """Fenêtre principale : en-tête de navigation, écrans, rappel de confidentialité."""
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtCore import QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QCloseEvent, QIcon
 from PySide6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
     QMainWindow,
+    QPushButton,
     QScrollArea,
     QStackedWidget,
     QVBoxLayout,
@@ -21,6 +22,7 @@ from au_fil_d_une_vie.ui.people_dialog import PeopleDialog
 from au_fil_d_une_vie.ui.screens.graph import GraphScreen
 from au_fil_d_une_vie.ui.screens.interview import InterviewScreen
 from au_fil_d_une_vie.ui.screens.quest import QuestScreen
+from au_fil_d_une_vie.ui.screens.settings import SettingsScreen
 from au_fil_d_une_vie.ui.screens.stories import StoriesScreen
 from au_fil_d_une_vie.ui.screens.story import StoryScreen
 from au_fil_d_une_vie.ui.screens.welcome import WelcomeScreen
@@ -29,6 +31,7 @@ from au_fil_d_une_vie.ui.widgets import (
     Picture,
     ThreadProgress,
     WashedPage,
+    icon_pixmap,
     label,
     link_button,
     outline_button,
@@ -38,7 +41,9 @@ PRIVACY = "Tout reste sur cet ordinateur. Rien n'est envoyé en ligne."
 
 
 class MainWindow(QMainWindow):
-    QUEST, INTERVIEW, STORIES, GRAPH, STORY, WELCOME = range(6)
+    QUEST, INTERVIEW, STORIES, GRAPH, STORY, WELCOME, SETTINGS = range(7)
+
+    preferences_changed = Signal()
 
     def __init__(self, services: Services) -> None:
         super().__init__()
@@ -64,6 +69,11 @@ class MainWindow(QMainWindow):
         self.interview.manage_people.connect(self.open_people)
         self.welcome = WelcomeScreen(services.profile, services.people)
         self.welcome.finished.connect(self._welcome_done)
+        self.settings = SettingsScreen(services)
+        self.settings.preferences_changed.connect(self.preferences_changed)
+        self.settings.manage_people.connect(self.open_people)
+        self.settings.install_model.connect(self.offer_model_setup)
+        self._disposed = False
         self.stories = StoriesScreen(services.stories)
         self.stories.story_opened.connect(self.show_story)
         self.stories.new_interview.connect(lambda: self.show_screen(self.INTERVIEW))
@@ -86,6 +96,7 @@ class MainWindow(QMainWindow):
             self.graph,
             self.story,
             self.welcome,
+            self.settings,
         ):
             self._stack.addWidget(self._scrollable(screen))
         layout.addWidget(self._stack, 1)
@@ -167,11 +178,18 @@ class MainWindow(QMainWindow):
             self.stories.refresh()
         if index == self.GRAPH:
             self.graph.refresh()
+        if index == self.SETTINGS:
+            self.settings.refresh()
         self._stack.setCurrentIndex(index)
         self._scroll_to_top(index)
         button = self._nav.button(self.STORIES if index == self.STORY else index)
         if button is not None:
             button.setChecked(True)
+        else:  # écran hors navigation (paramètres) : aucun lien actif
+            self._nav.setExclusive(False)
+            for link in self._nav.buttons():
+                link.setChecked(False)
+            self._nav.setExclusive(True)
         if index == self.QUEST:
             self.quest.refresh()
 
@@ -214,6 +232,16 @@ class MainWindow(QMainWindow):
         book = outline_button("Livre de famille")
         book.clicked.connect(self.open_book)
         nav.addWidget(book)
+        gear = QPushButton()
+        gear.setObjectName("outline")
+        gear.setIcon(QIcon(icon_pixmap("gear", 20, theme.INK_SOFT)))
+        gear.setIconSize(QSize(20, 20))
+        gear.setFixedWidth(48)
+        gear.setToolTip("Paramètres")
+        gear.setAccessibleName("Paramètres")
+        gear.setCursor(Qt.CursorShape.PointingHandCursor)
+        gear.clicked.connect(lambda: self.show_screen(self.SETTINGS))
+        nav.addWidget(gear)
         row.addWidget(self._nav_box)
         return header
 
@@ -314,7 +342,19 @@ class MainWindow(QMainWindow):
             self._job_text.setText("Modèle de transcription non installé.")
             self._install.show()
 
+    def current_screen(self) -> int:
+        return self._stack.currentIndex()
+
+    def dispose(self) -> None:
+        """Ferme cette fenêtre pour la remplacer (thème ou langue changés)."""
+        self._disposed = True
+        self.story.leave()
+        self.close()
+
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self._disposed:
+            event.accept()
+            return
         if self._may_leave_interview():
             # Le récit en cours de transcription sera repris au prochain lancement.
             self._services.transcription.shutdown(timeout=0)

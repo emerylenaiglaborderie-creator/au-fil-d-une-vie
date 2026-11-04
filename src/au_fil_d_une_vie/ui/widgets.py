@@ -66,7 +66,7 @@ def paint_dot(painter: QPainter, center: QPointF, diameter: float, filled: bool)
     else:
         width = max(1.5, diameter * 0.2)
         painter.setPen(QPen(theme.color(theme.RED), width))
-        painter.setBrush(theme.color(theme.WHITE))
+        painter.setBrush(theme.color(theme.SURFACE))
         painter.drawEllipse(center, r - width / 2, r - width / 2)
     painter.restore()
 
@@ -114,12 +114,22 @@ ICONS = {
         '<path fill="{color}" '
         'd="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/>'
     ),
+    "gear": _SVG.format(
+        f'<g {_STROKE} stroke-width="1.8"><circle cx="12" cy="12" r="3"/>'
+        '<path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3'
+        " 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1"
+        "a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1"
+        "a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0"
+        " 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3"
+        "l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4"
+        'h-.1a1.7 1.7 0 0 0-1.5 1z"/></g>'
+    ),
     "stop": _SVG.format('<rect x="5" y="5" width="14" height="14" rx="2" fill="{color}"/>'),
 }
 
 
-def icon_pixmap(name: str, size: int, color: str = theme.WHITE) -> QPixmap:
-    return svg_pixmap(ICONS[name].replace("{color}", color), size)
+def icon_pixmap(name: str, size: int, color: str | None = None) -> QPixmap:
+    return svg_pixmap(ICONS[name].replace("{color}", color or theme.ON_RED), size)
 
 
 def svg_pixmap(svg: str, size: int, device_ratio: float = 2.0) -> QPixmap:
@@ -168,7 +178,7 @@ class PrimaryButton(QPushButton):
         painter.drawRoundedRect(face.translated(0, offset), 12, 12)
 
         content = face.translated(0, offset)
-        painter.setPen(theme.color(theme.WHITE))
+        painter.setPen(theme.color(theme.ON_RED))
         painter.setFont(self.font())
         text_width = self.fontMetrics().horizontalAdvance(self.text())
         total = text_width + (32 if self._icon else 0)
@@ -218,7 +228,7 @@ class NavLink(QAbstractButton):
             paint_dot(painter, QPointF(x + 4, self.height() / 2), 8, filled=True)
             x += 16
         active = self.isChecked() or self._hover
-        painter.setPen(theme.color("#2B2B2B" if active else theme.NAV_MUTED))
+        painter.setPen(theme.color(theme.INK_STRONG if active else theme.NAV_MUTED))
         painter.setFont(self._font())
         painter.drawText(
             QRectF(x, 0, self.width() - x, self.height()),
@@ -265,23 +275,27 @@ def label(
     family: str = theme.SANS,
     px: int = 17,
     weight: QFont.Weight = QFont.Weight.Normal,
-    color: str = theme.INK,
+    color: str | None = None,
     italic: bool = False,
     wrap: bool = False,
     spacing_em: float = 0.0,
 ) -> QLabel:
     widget = QLabel(text)
     widget.setFont(theme.font(family, px, weight, italic, spacing_em))
-    widget.setStyleSheet(f"color: {color};")
+    widget.setStyleSheet(f"color: {color or theme.INK};")
     widget.setWordWrap(wrap)
     widget.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
     return widget
 
 
-def eyebrow(text: str, color: str = theme.LEAF_TEXT_SOFT, spacing_em: float = 0.16) -> QLabel:
+def eyebrow(text: str, color: str | None = None, spacing_em: float = 0.16) -> QLabel:
     """Petit titre en capitales espacées."""
     return label(
-        text.upper(), px=13, weight=QFont.Weight.DemiBold, color=color, spacing_em=spacing_em
+        text.upper(),
+        px=13,
+        weight=QFont.Weight.DemiBold,
+        color=color or theme.LEAF_TEXT_SOFT,
+        spacing_em=spacing_em,
     )
 
 
@@ -380,7 +394,7 @@ class WashedPage(QWidget):
         painter = QPainter(self)
         painter.fillRect(self.rect(), theme.color(theme.CREAM))
         if not self._wash.isNull():
-            painter.setOpacity(0.4)
+            painter.setOpacity(theme.WASH_OPACITY)
             painter.drawPixmap(self.width() - self._wash.width() + 140, 60, self._wash)
 
 
@@ -451,7 +465,7 @@ class ThreadWave(QWidget):
         amplitude = mid - 12
         thread = QPen(theme.color(theme.THREAD), 2.6)
         thread.setCapStyle(Qt.PenCapStyle.RoundCap)
-        dotted = QPen(theme.color("#BDBDBD"), 2.6)
+        dotted = QPen(theme.color(theme.DOTTED), 2.6)
         dotted.setCapStyle(Qt.PenCapStyle.RoundCap)
         dotted.setDashPattern([0.4, 3.6])
 
@@ -518,8 +532,9 @@ class LeafBullet(QLabel):
         super().__init__(parent)
         self.setFixedSize(10, 10)
         self.setStyleSheet(
-            "background: #6FA044; border-top-left-radius: 5px; border-bottom-right-radius: 5px;"
-            "border-top-right-radius: 1px; border-bottom-left-radius: 1px;"
+            f"background: {theme.LEAF_BULLET};"
+            " border-top-left-radius: 5px; border-bottom-right-radius: 5px;"
+            " border-top-right-radius: 1px; border-bottom-left-radius: 1px;"
         )
 
 
@@ -559,7 +574,7 @@ class ThreadProgress(QWidget):
         x = left + (right - left) * max(0.0, min(1.0, fraction))
         line = QPen(theme.color(theme.THREAD), 2)
         line.setCapStyle(Qt.PenCapStyle.RoundCap)
-        dotted = QPen(theme.color("#BDBDBD"), 2)
+        dotted = QPen(theme.color(theme.DOTTED), 2)
         dotted.setDashPattern([0.5, 3])
         if self._value is None:
             painter.setPen(dotted)

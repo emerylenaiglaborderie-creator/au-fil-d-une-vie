@@ -43,7 +43,7 @@ class WelcomeScreen(QWidget):
 
         side = QVBoxLayout()
         side.setSpacing(4)
-        side.addWidget(Picture(theme.IMAGES / "logo.png", 340))
+        side.addWidget(Picture(theme.logo_image(), 340))
         side.addStretch(1)
         side_box = QWidget()
         side_box.setLayout(side)
@@ -115,7 +115,7 @@ class WelcomeScreen(QWidget):
         )
         self._parent_consent = ConsentBox()
         self._parent_consent.set_text(PARENT_CONSENT)
-        self._parent_consent.setStyleSheet(f"QFrame#consent {{ background: {theme.WHITE}; }}")
+        self._parent_consent.setStyleSheet(f"QFrame#consent {{ background: {theme.SURFACE}; }}")
         self._parent_consent.toggled.connect(lambda _c: self._update())
         parent_box.addWidget(self._parent_consent)
         self._parent.hide()

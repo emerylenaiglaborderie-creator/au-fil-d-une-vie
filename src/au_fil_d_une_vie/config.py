@@ -27,3 +27,8 @@ def audio_dir() -> Path:
 def models_dir() -> Path:
     """Dossier des modèles téléchargés au premier lancement (Whisper, spaCy)."""
     return data_dir() / "models"
+
+
+def settings_path() -> Path:
+    """Préférences de l'application (langue, thème) : propres à l'ordinateur."""
+    return Path(_dirs.user_config_dir) / "settings.json"

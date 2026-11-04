@@ -88,6 +88,23 @@ def main() -> None:
     fenetre.show_screen(MainWindow.GRAPH)
     capturer("graphe")
 
+    fenetre.show_screen(MainWindow.SETTINGS)
+    capturer("parametres")
+
+    # Thème Nuit : on reconstruit la fenêtre avec l'autre palette.
+    theme.apply(True)
+    app.setStyleSheet(theme.stylesheet())
+    nuit = MainWindow(services)
+    nuit.resize(1360, 1300)
+    nuit.show()
+    nuit.show_screen(MainWindow.QUEST)
+    app.processEvents()
+    nuit.grab().save(str(sortie / "quete-nuit.png"))
+    print(sortie / "quete-nuit.png")
+    nuit.close()
+    theme.apply(False)
+    app.setStyleSheet(theme.stylesheet())
+
     livre = render_book(
         services.book.gather(),
         sortie / "livre-exemple.pdf",

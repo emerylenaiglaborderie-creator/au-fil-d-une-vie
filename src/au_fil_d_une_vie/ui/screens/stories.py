@@ -71,7 +71,7 @@ class StoryEntry(ClickableFrame):
         box.addWidget(meta)
 
         text = f"« {card.excerpt} »" if card.excerpt else status_text(card)
-        quote = label(text, theme.SERIF, 16, color="#444444", italic=True, wrap=True)
+        quote = label(text, theme.SERIF, 16, color=theme.QUOTE, italic=True, wrap=True)
         quote.setFixedHeight(46)
         quote.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         box.addWidget(quote)
@@ -191,7 +191,7 @@ class StoriesScreen(QWidget):
         new.setMinimumWidth(380)
         new.clicked.connect(self.new_interview)
         aside.addWidget(new)
-        aside.addWidget(Picture(theme.IMAGES / "logo.png", 380))
+        aside.addWidget(Picture(theme.logo_image(), 380))
         aside.addStretch(1)
         aside_box = QWidget()
         aside_box.setLayout(aside)

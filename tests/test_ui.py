@@ -16,6 +16,15 @@ from au_fil_d_une_vie.ui.main_window import MainWindow
 from au_fil_d_une_vie.ui.widgets import LeafToggle, PrimaryButton
 
 
+@pytest.fixture(autouse=True)
+def theme_jour() -> Iterator[None]:
+    """Chaque test d'interface repart du thème Jour, même si un test a choisi Nuit."""
+    from au_fil_d_une_vie.ui import theme
+
+    yield
+    theme.apply(False)
+
+
 @pytest.fixture
 def micro() -> FakeAudioInput:
     return FakeAudioInput()
@@ -23,7 +32,12 @@ def micro() -> FakeAudioInput:
 
 @pytest.fixture
 def services(micro: FakeAudioInput, tmp_path: Path) -> Services:
-    return open_services(demo=True, microphone=lambda: micro, models_dir=tmp_path / "modeles")
+    return open_services(
+        demo=True,
+        microphone=lambda: micro,
+        models_dir=tmp_path / "modeles",
+        settings_path=tmp_path / "settings.json",
+    )
 
 
 @pytest.fixture
@@ -453,7 +467,14 @@ def neuve(qtbot: QtBot, tmp_path: Path, micro: FakeAudioInput) -> Iterator[MainW
     db = tmp_path / "base.db"
     conn = connect(db)
     seed_tracks(conn)
-    services = build_services(conn, db, tmp_path / "audio", lambda: micro, tmp_path / "modeles")
+    services = build_services(
+        conn,
+        db,
+        tmp_path / "audio",
+        lambda: micro,
+        tmp_path / "modeles",
+        settings_path=tmp_path / "settings.json",
+    )
     fenetre = MainWindow(services)
     fenetre.interview.confirm = lambda question: True  # type: ignore[method-assign]
     qtbot.addWidget(fenetre)
@@ -512,3 +533,36 @@ def test_gerer_les_proches(qtbot: QtBot, window: MainWindow, services: Services)
     dialogue.confirm = lambda question: True  # type: ignore[method-assign]
     dialogue._delete(next(p for p, _ in services.people.all() if p.display_name == "Inès"), 0)
     assert "Inès" not in [p.display_name for p, _ in services.people.all()]
+
+
+# Paramètres
+
+
+def test_changer_son_prenom_dans_les_parametres(window: MainWindow, services: Services) -> None:
+    window.show_screen(MainWindow.SETTINGS)
+    ecran = window.settings
+    ecran._name.setText("Camille-Rose")
+    ecran._save_name()
+    profil = services.profile.get()
+    assert profil is not None and profil.first_name == "Camille-Rose"
+    window.show_screen(MainWindow.QUEST)
+    assert window.quest._hello.text() == "Bonjour Camille-Rose"
+
+
+def test_choisir_le_theme_nuit_reconstruit_la_fenetre(
+    qtbot: QtBot, window: MainWindow, services: Services
+) -> None:
+    from au_fil_d_une_vie.ui import theme
+    from au_fil_d_une_vie.ui.app import Controller, create_application
+
+    controleur = Controller(create_application([]), services)
+    ancienne = controleur.window
+    qtbot.addWidget(ancienne)
+    ancienne.show_screen(MainWindow.SETTINGS)
+    ancienne.settings._themes.button(2).click()  # Nuit
+
+    assert services.settings.load().theme == "dark"
+    assert controleur.window is not ancienne
+    assert controleur.window.current_screen() == MainWindow.SETTINGS
+    assert theme.DARK_MODE
+    qtbot.addWidget(controleur.window)
