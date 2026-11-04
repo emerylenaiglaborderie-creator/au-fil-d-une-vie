@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import QByteArray, QEvent, QPointF, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QByteArray, QEvent, QPointF, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QEnterEvent,
@@ -521,3 +521,52 @@ class LeafBullet(QLabel):
             "background: #6FA044; border-top-left-radius: 5px; border-bottom-right-radius: 5px;"
             "border-top-right-radius: 1px; border-bottom-left-radius: 1px;"
         )
+
+
+class ThreadProgress(QWidget):
+    """Barre de progression en fil : trait plein jusqu'au point rouge, pointillés après.
+
+    Sans valeur (`None`), le point glisse le long du fil (durée inconnue).
+    """
+
+    def __init__(self, width: int = 140, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(width, 16)
+        self._value: float | None = 0.0
+        self._phase = 0.0
+        self._timer = QTimer(self)
+        self._timer.setInterval(40)
+        self._timer.timeout.connect(self._step)
+
+    def set_value(self, value: float | None) -> None:
+        self._value = value
+        if value is None:
+            self._timer.start()
+        else:
+            self._timer.stop()
+        self.update()
+
+    def _step(self) -> None:
+        self._phase = (self._phase + 0.012) % 1.0
+        self.update()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        mid = self.height() / 2
+        left, right = 6.0, self.width() - 6.0
+        fraction = self._value if self._value is not None else self._phase
+        x = left + (right - left) * max(0.0, min(1.0, fraction))
+        line = QPen(theme.color(theme.THREAD), 2)
+        line.setCapStyle(Qt.PenCapStyle.RoundCap)
+        dotted = QPen(theme.color("#BDBDBD"), 2)
+        dotted.setDashPattern([0.5, 3])
+        if self._value is None:
+            painter.setPen(dotted)
+            painter.drawLine(QPointF(left, mid), QPointF(right, mid))
+        else:
+            painter.setPen(line)
+            painter.drawLine(QPointF(left, mid), QPointF(x, mid))
+            painter.setPen(dotted)
+            painter.drawLine(QPointF(x + 6, mid), QPointF(right, mid))
+        paint_dot(painter, QPointF(x, mid - 1), 10, filled=True)

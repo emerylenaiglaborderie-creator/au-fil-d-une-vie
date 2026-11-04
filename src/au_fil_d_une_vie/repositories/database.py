@@ -17,9 +17,12 @@ def connect(path: Path | str) -> sqlite3.Connection:
     """Ouvre la base, active les clés étrangères et applique les migrations en attente."""
     if isinstance(path, Path):
         path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(path, timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    if str(path) != ":memory:":
+        # Lectures (interface) et écritures (transcription) en parallèle sans blocage.
+        conn.execute("PRAGMA journal_mode = WAL")
     migrate(conn)
     return conn
 

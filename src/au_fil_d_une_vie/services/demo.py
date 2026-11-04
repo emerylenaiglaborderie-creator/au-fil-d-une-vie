@@ -15,15 +15,27 @@ from au_fil_d_une_vie.repositories import (
     ThemeRepository,
     TranscriptRepository,
 )
+from au_fil_d_une_vie.services.keywords import TextAnalyzer
+
+
+def lemma_of(label: str, analyzer: TextAnalyzer | None) -> str:
+    """Lemme d'un mot-clé saisi : celui de l'analyseur s'il en trouve un."""
+    terms = analyzer.terms(label) if analyzer else []
+    return " ".join(t.lemma for t in terms) if terms else label.strip().lower()
+
 
 DEMO_PATH = Path(__file__).resolve().parent.parent / "data" / "demo.json"
 DEMO_CONSENT = "Consentement fictif (jeu de démonstration)."
 
 
-def load_demo(conn: sqlite3.Connection, path: Path = DEMO_PATH) -> dict[int, list[str]]:
+def load_demo(
+    conn: sqlite3.Connection, path: Path = DEMO_PATH, analyzer: TextAnalyzer | None = None
+) -> dict[int, list[str]]:
     """Remplit une base vide avec le jeu de démo.
 
-    Les mots-clés indiqués dans le fichier sont enregistrés comme validés.
+    Les mots-clés indiqués dans le fichier sont enregistrés comme validés. Avec un
+    analyseur, ils sont lemmatisés comme ceux des vrais récits (« sabots » devient
+    « sabot »), pour que les mots proposés plus tard s'y relient.
     Retourne, pour chaque récit créé, la liste de ses mots-clés.
     """
     data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
@@ -62,6 +74,6 @@ def load_demo(conn: sqlite3.Connection, path: Path = DEMO_PATH) -> dict[int, lis
         transcripts_repo.save_raw(record.id, story["text"])
         stories_repo.set_status(record.id, StoryStatus.TRANSCRIBED)
         for label in story["keywords"]:
-            keywords_repo.add_validated(record.id, label.lower(), label)
+            keywords_repo.add_validated(record.id, lemma_of(label, analyzer), label)
         created[record.id] = story["keywords"]
     return created

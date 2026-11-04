@@ -14,6 +14,12 @@ def main() -> None:
         action="store_true",
         help="ouvrir une base temporaire remplie avec le jeu de démo fictif",
     )
+    parser.add_argument(
+        "--modele",
+        choices=("small", "base"),
+        default="small",
+        help="modèle de transcription : small (meilleur) ou base (plus rapide, machine modeste)",
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = parser.parse_args()
 
@@ -21,7 +27,7 @@ def main() -> None:
     from au_fil_d_une_vie.bootstrap import open_services
     from au_fil_d_une_vie.ui.app import run
 
-    raise SystemExit(run(open_services(demo=args.demo)))
+    raise SystemExit(run(open_services(demo=args.demo, model_size=args.modele)))
 
 
 if __name__ == "__main__":

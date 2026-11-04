@@ -13,6 +13,8 @@ dependencies = [
     "spacy>=3.7",
     "pyside6-essentials>=6.12.0",
     "pyside6-addons>=6.12.0",
+    "fr-core-news-md",
+    "numpy>=2.0",
 ]
 
 [project.scripts]
@@ -60,3 +62,6 @@ packages = ["au_fil_d_une_vie"]
 [[tool.mypy.overrides]]
 module = ["faster_whisper.*", "spacy.*", "networkx.*", "reportlab.*"]
 ignore_missing_imports = true
+
+[tool.uv.sources]
+fr-core-news-md = { url = "https://github.com/explosion/spacy-models/releases/download/fr_core_news_md-3.8.0/fr_core_news_md-3.8.0-py3-none-any.whl" }
