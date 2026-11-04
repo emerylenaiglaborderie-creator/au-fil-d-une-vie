@@ -26,4 +26,5 @@ def run(services: Services) -> int:
     app = create_application()
     window = MainWindow(services)
     window.show()
+    window.start_background_work()
     return app.exec()

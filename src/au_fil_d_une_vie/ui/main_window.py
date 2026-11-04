@@ -1,6 +1,6 @@
 """Fenêtre principale : en-tête de navigation, écrans, rappel de confidentialité."""
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -14,10 +14,20 @@ from PySide6.QtWidgets import (
 
 from au_fil_d_une_vie.bootstrap import Services
 from au_fil_d_une_vie.ui import theme
+from au_fil_d_une_vie.ui.bridge import TranscriptionBridge
+from au_fil_d_une_vie.ui.model_setup import ModelSetupDialog
 from au_fil_d_une_vie.ui.screens.interview import InterviewScreen
 from au_fil_d_une_vie.ui.screens.placeholder import PlaceholderScreen
 from au_fil_d_une_vie.ui.screens.quest import QuestScreen
-from au_fil_d_une_vie.ui.widgets import NavLink, Picture, WashedPage, label, outline_button
+from au_fil_d_une_vie.ui.widgets import (
+    NavLink,
+    Picture,
+    ThreadProgress,
+    WashedPage,
+    label,
+    link_button,
+    outline_button,
+)
 
 PRIVACY = "Tout reste sur cet ordinateur. Rien n'est envoyé en ligne."
 
@@ -44,6 +54,13 @@ class MainWindow(QMainWindow):
         self.quest.theme_opened.connect(lambda *_: self.show_screen(self.STORIES))
         self.interview = InterviewScreen(services.quest, services.recording)
         self.interview.back_to_quest.connect(lambda: self.show_screen(self.QUEST))
+        self.interview.story_saved.connect(self._story_saved)
+
+        self._bridge = TranscriptionBridge(services.transcription, self)
+        self._bridge.progress.connect(self._transcription_progress)
+        self._bridge.finished.connect(self._transcription_finished)
+        self._bridge.failed.connect(self._transcription_failed)
+        self._model_offered = False
         for screen in (
             self.quest,
             self.interview,
@@ -125,15 +142,98 @@ class MainWindow(QMainWindow):
         footer.setObjectName("footer")
         footer.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         row = QHBoxLayout(footer)
-        row.setContentsMargins(48, 14, 48, 14)
+        row.setContentsMargins(48, 10, 48, 10)
+        row.setSpacing(12)
         text = label(PRIVACY, px=14, color=theme.MUTED)
         text.setObjectName("footerText")
         row.addWidget(text)
         row.addStretch(1)
+        self._job_text = label("", px=14, color=theme.MUTED)
+        row.addWidget(self._job_text)
+        self._job_bar = ThreadProgress(140)
+        self._job_bar.hide()
+        row.addWidget(self._job_bar)
+        self._install = link_button("Installer")
+        self._install.setMinimumHeight(28)
+        self._install.clicked.connect(self.offer_model_setup)
+        self._install.hide()
+        row.addWidget(self._install)
+        self._clear_job = QTimer(self)
+        self._clear_job.setSingleShot(True)
+        self._clear_job.setInterval(6000)
+        self._clear_job.timeout.connect(self._refresh_job_status)
         return footer
+
+    # Transcription
+
+    def start_background_work(self) -> None:
+        """Au démarrage : reprendre les textes en attente, ou proposer le modèle."""
+        if self._services.transcription_ready():
+            self._services.transcription.resume_pending()
+            self._refresh_job_status()
+        else:
+            self._refresh_job_status()
+            if not self._model_offered:
+                QTimer.singleShot(300, self.offer_model_setup)
+
+    def offer_model_setup(self) -> None:
+        self._model_offered = True
+        dialog = ModelSetupDialog(self._services.models, self._services.model_size, self)
+        dialog.installed.connect(self._model_installed)
+        dialog.open()
+
+    def _model_installed(self) -> None:
+        self._services.transcription.resume_pending()
+        self._refresh_job_status()
+
+    def _story_saved(self, story_id: int) -> None:
+        if self._services.transcription_ready():
+            self._services.transcription.enqueue(story_id)
+        self._refresh_job_status()
+
+    def _transcription_progress(self, story_id: int, fraction: float) -> None:
+        _current, waiting = self._services.transcription.snapshot()
+        suffix = f" · {waiting} en attente" if waiting else ""
+        self._job_text.setStyleSheet(f"color: {theme.MUTED};")
+        self._job_text.setText(f"Texte du récit en préparation{suffix}")
+        self._job_bar.set_value(fraction)
+        self._job_bar.show()
+        self._install.hide()
+
+    def _transcription_finished(self, story_id: int) -> None:
+        current, waiting = self._services.transcription.snapshot()
+        if current is None and not waiting:
+            self._job_bar.hide()
+            self._job_text.setStyleSheet(f"color: {theme.LEAF_TEXT};")
+            self._job_text.setText("Le texte du récit est prêt.")
+            self._clear_job.start()
+
+    def _transcription_failed(self, story_id: int, message: str) -> None:
+        self._job_bar.hide()
+        self._job_text.setStyleSheet(f"color: {theme.RED_TEXT};")
+        self._job_text.setText("Le texte d'un récit n'a pas pu être préparé.")
+        self._job_text.setToolTip(message)
+        self._clear_job.start()
+
+    def _refresh_job_status(self) -> None:
+        """État calme du pied de page : rien, ou un rappel si le modèle manque."""
+        current, waiting = self._services.transcription.snapshot()
+        if current is not None or waiting:
+            return
+        self._job_bar.hide()
+        self._job_text.setToolTip("")
+        if self._services.transcription_ready():
+            self._job_text.setText("")
+            self._install.hide()
+        else:
+            self._job_text.setStyleSheet(f"color: {theme.MUTED};")
+            self._job_text.setText("Modèle de transcription non installé.")
+            self._install.show()
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if self._may_leave_interview():
+            # Le récit en cours de transcription sera repris au prochain lancement.
+            self._services.transcription.shutdown(timeout=0)
             event.accept()
         else:
             event.ignore()

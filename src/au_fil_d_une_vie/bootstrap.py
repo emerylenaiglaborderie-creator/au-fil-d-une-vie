@@ -4,6 +4,7 @@ C'est le seul endroit où les trois couches se rencontrent. L'interface reçoit
 uniquement l'objet `Services`.
 """
 
+import functools
 import sqlite3
 import tempfile
 from collections.abc import Callable
@@ -20,9 +21,23 @@ from au_fil_d_une_vie.repositories import (
     connect,
 )
 from au_fil_d_une_vie.services.demo import load_demo
+from au_fil_d_une_vie.services.keywords import TextAnalyzer
 from au_fil_d_une_vie.services.links import LinkService
 from au_fil_d_une_vie.services.quest import QuestService
 from au_fil_d_une_vie.services.recording import AudioInput, RecordingService
+from au_fil_d_une_vie.services.transcription import Transcriber
+from au_fil_d_une_vie.services.transcription_queue import TranscriptionQueue
+from au_fil_d_une_vie.services.whisper import DEFAULT_SIZE, WhisperModels
+
+
+@functools.cache
+def _analyzer() -> TextAnalyzer | None:
+    """Analyseur spaCy si le modèle français est installé, sinon aucun (chargé une fois)."""
+    import importlib.util
+
+    from au_fil_d_une_vie.services.spacy_analyzer import DEFAULT_MODEL, SpacyAnalyzer
+
+    return SpacyAnalyzer() if importlib.util.find_spec(DEFAULT_MODEL) else None
 
 
 def _qt_microphone() -> AudioInput:
@@ -37,8 +52,14 @@ class Services:
     quest: QuestService
     links: LinkService
     recording: RecordingService
+    transcription: TranscriptionQueue
+    models: WhisperModels
+    model_size: str
     db_path: Path
     audio_dir: Path
+
+    def transcription_ready(self) -> bool:
+        return self.models.is_installed(self.model_size)
 
 
 def build_services(
@@ -46,27 +67,44 @@ def build_services(
     db_path: Path,
     audio_dir: Path,
     microphone: Callable[[], AudioInput] = _qt_microphone,
+    models_dir: Path | None = None,
+    model_size: str = DEFAULT_SIZE,
 ) -> Services:
     keywords = KeywordRepository(conn)
+    models = WhisperModels(models_dir or config.models_dir())
+
+    def transcriber() -> Transcriber:
+        from au_fil_d_une_vie.services.whisper import FasterWhisperTranscriber
+
+        return FasterWhisperTranscriber(models.path(model_size))
+
     return Services(
         quest=QuestService(ProfileRepository(conn), PersonRepository(conn), ThemeRepository(conn)),
         links=LinkService(keywords),
         recording=RecordingService(StoryRepository(conn), audio_dir, microphone),
+        transcription=TranscriptionQueue(
+            lambda: connect(db_path), audio_dir, transcriber, _analyzer
+        ),
+        models=models,
+        model_size=model_size,
         db_path=db_path,
         audio_dir=audio_dir,
     )
 
 
 def open_services(
-    demo: bool = False, microphone: Callable[[], AudioInput] = _qt_microphone
+    demo: bool = False,
+    microphone: Callable[[], AudioInput] = _qt_microphone,
+    model_size: str = DEFAULT_SIZE,
+    models_dir: Path | None = None,
 ) -> Services:
     """Base de l'utilisateur, ou base temporaire remplie avec le jeu de démo."""
     if demo:
         folder = Path(tempfile.mkdtemp(prefix="au-fil-demo-"))
         db_path, audio_dir = folder / "demo.db", folder / "audio"
         conn = connect(db_path)
-        load_demo(conn)
+        load_demo(conn, analyzer=_analyzer())
     else:
         db_path, audio_dir = config.db_path(), config.audio_dir()
         conn = connect(db_path)
-    return build_services(conn, db_path, audio_dir, microphone)
+    return build_services(conn, db_path, audio_dir, microphone, models_dir, model_size)

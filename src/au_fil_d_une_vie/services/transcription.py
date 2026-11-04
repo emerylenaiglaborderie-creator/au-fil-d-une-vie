@@ -20,8 +20,13 @@ ProgressCallback = Callable[[float], None]
 
 
 class Transcriber(Protocol):
-    """Moteur de transcription locale (adaptateur prévu : FasterWhisperTranscriber)."""
+    """Moteur de transcription locale (adaptateur : FasterWhisperTranscriber)."""
 
     def transcribe(
-        self, audio_path: Path, on_progress: ProgressCallback | None = None
-    ) -> TranscriptionResult: ...
+        self,
+        audio_path: Path,
+        on_progress: ProgressCallback | None = None,
+        hotwords: str | None = None,
+    ) -> TranscriptionResult:
+        """`hotwords` : noms propres à bien reconnaître (les proches de la famille)."""
+        ...

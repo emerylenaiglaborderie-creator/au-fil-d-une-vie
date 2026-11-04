@@ -22,8 +22,9 @@ Projet de BTS SIO option SLAM.
 | Base de données, repositories | fait |
 | Mots-clés (TF-IDF) et liens entre récits | fait |
 | Écrans « Ma quête » et « Interview » (enregistrement audio) | fait |
+| Transcription locale (faster-whisper) et mots-clés proposés | fait |
 | Récits, Fiche récit, Graphe | à venir |
-| Transcription locale, livre de famille | à venir |
+| Livre de famille | à venir |
 
 ## Prérequis
 
@@ -39,6 +40,10 @@ uv sync
 uv run au-fil-d-une-vie          # ta propre quête
 uv run au-fil-d-une-vie --demo   # avec le jeu de démo fictif
 ```
+
+### Premier lancement
+
+L'application propose de télécharger le modèle de transcription (environ 465 Mo, une seule fois). C'est la seule fois où elle utilise internet ; on peut refuser et enregistrer quand même, les textes seront préparés plus tard. Sur une machine modeste : `uv run au-fil-d-une-vie --modele base`. Détails : [docs/transcription.md](docs/transcription.md).
 
 ### Micro
 

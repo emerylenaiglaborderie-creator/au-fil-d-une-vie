@@ -367,7 +367,8 @@ class InterviewScreen(QWidget):
         name = self._person.currentText()
         self._done_text.setText(
             f"Le récit de {name} ({format_duration(story.duration_s)}) est gardé sur cet "
-            "ordinateur. Son texte sera préparé ici même, sans rien envoyer en ligne."
+            "ordinateur. Son texte se prépare ici même, sans rien envoyer en ligne : "
+            "tu peux suivre l'avancement en bas de la fenêtre."
         )
         self._recorder.hide()
         self._done.show()

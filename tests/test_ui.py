@@ -1,6 +1,7 @@
 """Tests de l'interface (pytest-qt), sur une base de démo temporaire."""
 
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 from PySide6.QtCore import Qt
@@ -21,8 +22,8 @@ def micro() -> FakeAudioInput:
 
 
 @pytest.fixture
-def services(micro: FakeAudioInput) -> Services:
-    return open_services(demo=True, microphone=lambda: micro)
+def services(micro: FakeAudioInput, tmp_path: Path) -> Services:
+    return open_services(demo=True, microphone=lambda: micro, models_dir=tmp_path / "modeles")
 
 
 @pytest.fixture
@@ -190,3 +191,47 @@ def test_d_autres_pistes_changent_la_question(qtbot: QtBot, interview: MainWindo
     ligne = ecran._aside.parentWidget().findChildren(ClickableFrame)[0]  # type: ignore[union-attr]
     qtbot.mouseClick(ligne, Qt.MouseButton.LeftButton)
     assert ecran._question.text() != avant
+
+
+# Transcription
+
+
+def _installer_faux_modele(services: Services) -> None:
+    from tests.test_transcription_queue import FauxWhisper
+
+    dossier = services.models.path(services.model_size)
+    dossier.mkdir(parents=True)
+    (dossier / "model.bin").write_bytes(b"")
+    services.transcription._transcriber_factory = FauxWhisper  # type: ignore[method-assign]
+
+
+def test_sans_modele_le_pied_de_page_propose_l_installation(window: MainWindow) -> None:
+    window._refresh_job_status()
+    assert window._job_text.text() == "Modèle de transcription non installé."
+    assert window._install.isVisibleTo(window)
+
+
+def test_la_fenetre_du_modele_ne_telecharge_rien_sans_accord(
+    qtbot: QtBot, window: MainWindow, services: Services
+) -> None:
+    from au_fil_d_une_vie.ui.model_setup import ModelSetupDialog
+
+    dialogue = ModelSetupDialog(services.models, services.model_size, window)
+    qtbot.addWidget(dialogue)
+    dialogue._later.click()
+    assert not services.transcription_ready()
+    assert not services.models.path(services.model_size).exists()
+
+
+def test_un_recit_enregistre_est_transcrit_en_arriere_plan(
+    qtbot: QtBot, interview: MainWindow, micro: FakeAudioInput, services: Services
+) -> None:
+    _installer_faux_modele(services)
+    ecran = interview.interview
+    ecran._consent.set_checked(True)
+    qtbot.mouseClick(ecran._start, Qt.MouseButton.LeftButton)
+    micro.hear(tone(1.5))
+    with qtbot.waitSignal(interview._bridge.finished, timeout=10_000):
+        qtbot.mouseClick(ecran._finish, Qt.MouseButton.LeftButton)
+    qtbot.waitUntil(lambda: interview._job_text.text() == "Le texte du récit est prêt.")
+    services.transcription.shutdown(5)
