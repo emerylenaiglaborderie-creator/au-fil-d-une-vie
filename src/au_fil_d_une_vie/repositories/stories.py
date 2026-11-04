@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from au_fil_d_une_vie.models import Consent, Story, StoryStatus
+from au_fil_d_une_vie.models import Consent, Story, StoryRow, StoryStatus
 from au_fil_d_une_vie.repositories.database import now_iso, parse_iso
 
 
@@ -111,3 +111,32 @@ class StoryRepository:
             [s.value for s in statuses],
         ).fetchall()
         return [row["id"] for row in rows]
+
+    def list_rows(self, include_hidden: bool = True) -> list[StoryRow]:
+        """Récits avec personne, question, piste et texte, du plus récent au plus ancien."""
+        rows = self._conn.execute(
+            """
+            SELECT s.*, p.display_name, q.text AS question_text,
+                   t.id AS theme_id, t.label AS theme_label,
+                   COALESCE(tr.book_text, tr.raw_text) AS story_text
+            FROM story AS s
+            JOIN person AS p ON p.id = s.person_id
+            JOIN question AS q ON q.id = s.question_id
+            JOIN theme AS t ON t.id = q.theme_id
+            LEFT JOIN transcript AS tr ON tr.story_id = s.id
+            WHERE ? OR s.is_hidden = 0
+            ORDER BY s.recorded_at DESC, s.id DESC
+            """,
+            (int(include_hidden),),
+        ).fetchall()
+        return [
+            StoryRow(
+                story=_to_story(row),
+                person_name=row["display_name"],
+                question_text=row["question_text"],
+                theme_id=row["theme_id"],
+                theme_label=row["theme_label"],
+                text=row["story_text"],
+            )
+            for row in rows
+        ]

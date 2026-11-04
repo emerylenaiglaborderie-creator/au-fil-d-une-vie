@@ -248,6 +248,90 @@ QLabel#sectionTitle {{
 }}
 QLabel {{ background: transparent; }}
 
+QFrame#leaf_filled, QFrame#leaf_filled_small {{
+    background: {LEAF};
+    border: 1px solid {LEAF};
+}}
+QFrame#leaf_outline, QFrame#leaf_outline_small {{
+    background: transparent;
+    border: 1px solid {LEAF_BORDER};
+}}
+QFrame#leaf_proposed, QFrame#leaf_proposed_small, QFrame#leaf_add {{
+    background: transparent;
+    border: 1px dashed #7A7A7A;
+}}
+QFrame#leaf_proposed:hover, QFrame#leaf_add:hover {{
+    background: {LEAF_HOVER};
+    border-color: {LEAF_TEXT_SOFT};
+}}
+QFrame#leaf_filled, QFrame#leaf_outline, QFrame#leaf_proposed, QFrame#leaf_add {{
+    border-top-left-radius: 14px;
+    border-top-right-radius: 2px;
+    border-bottom-right-radius: 14px;
+    border-bottom-left-radius: 2px;
+}}
+QFrame#leaf_filled_small, QFrame#leaf_outline_small, QFrame#leaf_proposed_small {{
+    border-top-left-radius: 12px;
+    border-top-right-radius: 2px;
+    border-bottom-right-radius: 12px;
+    border-bottom-left-radius: 2px;
+}}
+QToolButton#chipClose {{
+    border: none;
+    background: transparent;
+    color: {MUTED};
+    font-size: 15px;
+    padding: 0 4px;
+}}
+QToolButton#chipClose:hover {{ color: {RED_TEXT}; }}
+
+QPushButton#tab {{
+    min-height: 44px;
+    padding: 0 14px;
+    border: none;
+    border-bottom: 2.5px solid transparent;
+    background: transparent;
+    font-size: 15px;
+    color: {NAV_MUTED};
+}}
+QPushButton#tab:hover {{ color: {INK}; }}
+QPushButton#tab:checked {{
+    border-bottom-color: {RED};
+    font-weight: 600;
+    color: #2B2B2B;
+}}
+
+QLineEdit#search {{
+    min-height: 44px;
+    padding: 0 2px;
+    border: none;
+    border-bottom: 1.5px solid {INK_SOFT};
+    background: transparent;
+}}
+
+QFrame#storyRow {{ border: none; border-radius: 12px; background: transparent; }}
+QFrame#storyRow:hover {{ background: #F1F5E6; }}
+QFrame#relatedRow {{ border: none; border-radius: 10px; background: transparent; }}
+QFrame#relatedRow:hover {{ background: {LEAF_HOVER}; }}
+
+QFrame#playerCard {{
+    background: {WHITE};
+    border: 1px solid {BORDER};
+    border-radius: 16px;
+}}
+QFrame#article {{
+    background: {WHITE};
+    border: 1px solid {BORDER};
+    border-radius: 20px;
+}}
+QPlainTextEdit#editor, QPlainTextEdit#notebook {{
+    padding: 10px 12px;
+    border: 1px solid #CFD6BC;
+    border-radius: 14px;
+    background: {WHITE};
+}}
+QPlainTextEdit#editor:focus, QPlainTextEdit#notebook:focus {{ border-color: {LEAF_TEXT_SOFT}; }}
+
 QScrollBar:vertical {{
     width: 10px;
     background: transparent;

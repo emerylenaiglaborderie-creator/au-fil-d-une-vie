@@ -120,3 +120,15 @@ class Note:
     story_id: int
     content: str
     updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class StoryRow:
+    """Un récit avec ce qu'il faut pour l'afficher dans une liste (une seule requête)."""
+
+    story: Story
+    person_name: str
+    question_text: str
+    theme_id: int
+    theme_label: str
+    text: str | None

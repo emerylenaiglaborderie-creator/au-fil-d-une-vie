@@ -13,6 +13,8 @@ Projet de BTS SIO option SLAM.
 <p align="center">
   <img src="docs/captures/quete.png" alt="Écran Ma quête" width="420">
   <img src="docs/captures/interview.png" alt="Écran Interview" width="420">
+  <img src="docs/captures/recits.png" alt="Écran Mes récits" width="420">
+  <img src="docs/captures/recit.png" alt="Fiche d'un récit" width="420">
 </p>
 
 ## État
@@ -23,7 +25,8 @@ Projet de BTS SIO option SLAM.
 | Mots-clés (TF-IDF) et liens entre récits | fait |
 | Écrans « Ma quête » et « Interview » (enregistrement audio) | fait |
 | Transcription locale (faster-whisper) et mots-clés proposés | fait |
-| Récits, Fiche récit, Graphe | à venir |
+| Récits (fil, recherche, filtres) et Fiche récit (écoute, correction, mots-clés, carnet, masquer, supprimer) | fait |
+| Graphe | à venir |
 | Livre de famille | à venir |
 
 ## Prérequis

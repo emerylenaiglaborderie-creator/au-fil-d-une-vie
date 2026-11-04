@@ -19,6 +19,8 @@ from au_fil_d_une_vie.ui.model_setup import ModelSetupDialog
 from au_fil_d_une_vie.ui.screens.interview import InterviewScreen
 from au_fil_d_une_vie.ui.screens.placeholder import PlaceholderScreen
 from au_fil_d_une_vie.ui.screens.quest import QuestScreen
+from au_fil_d_une_vie.ui.screens.stories import StoriesScreen
+from au_fil_d_une_vie.ui.screens.story import StoryScreen
 from au_fil_d_une_vie.ui.widgets import (
     NavLink,
     Picture,
@@ -33,7 +35,7 @@ PRIVACY = "Tout reste sur cet ordinateur. Rien n'est envoyé en ligne."
 
 
 class MainWindow(QMainWindow):
-    QUEST, INTERVIEW, STORIES, GRAPH = range(4)
+    QUEST, INTERVIEW, STORIES, GRAPH, STORY = range(5)
 
     def __init__(self, services: Services) -> None:
         super().__init__()
@@ -51,10 +53,17 @@ class MainWindow(QMainWindow):
         self._stack = QStackedWidget()
         self.quest = QuestScreen(services.quest)
         self.quest.interview_requested.connect(self._open_interview)
-        self.quest.theme_opened.connect(lambda *_: self.show_screen(self.STORIES))
+        self.quest.theme_opened.connect(self._open_theme)
         self.interview = InterviewScreen(services.quest, services.recording)
         self.interview.back_to_quest.connect(lambda: self.show_screen(self.QUEST))
         self.interview.story_saved.connect(self._story_saved)
+        self.stories = StoriesScreen(services.stories)
+        self.stories.story_opened.connect(self.show_story)
+        self.stories.new_interview.connect(lambda: self.show_screen(self.INTERVIEW))
+        self.story = StoryScreen(services.stories)
+        self.story.back.connect(lambda: self.show_screen(self.STORIES))
+        self.story.story_opened.connect(self.show_story)
+        self.story.deleted.connect(lambda: self.show_screen(self.STORIES))
 
         self._bridge = TranscriptionBridge(services.transcription, self)
         self._bridge.progress.connect(self._transcription_progress)
@@ -64,8 +73,9 @@ class MainWindow(QMainWindow):
         for screen in (
             self.quest,
             self.interview,
-            PlaceholderScreen("Mes récits"),
+            self.stories,
             PlaceholderScreen("Au fil des mots"),
+            self.story,
         ):
             self._stack.addWidget(self._scrollable(screen))
         layout.addWidget(self._stack, 1)
@@ -76,6 +86,19 @@ class MainWindow(QMainWindow):
     def _open_interview(self, question_id: int, person_id: int) -> None:
         self.interview.open(question_id, person_id)
         self.show_screen(self.INTERVIEW)
+
+    def show_story(self, story_id: int) -> None:
+        self.story.open(story_id)
+        self.show_screen(self.STORY)
+
+    def _open_theme(self, theme_id: int) -> None:
+        self.stories.set_theme(theme_id)
+        self.show_screen(self.STORIES)
+
+    def _scroll_to_top(self, index: int) -> None:
+        area = self._stack.widget(index)
+        if isinstance(area, QScrollArea):
+            area.verticalScrollBar().setValue(0)
 
     def _may_leave_interview(self) -> bool:
         """Quitter l'interview pendant un enregistrement : demander, puis effacer la prise."""
@@ -95,8 +118,13 @@ class MainWindow(QMainWindow):
             return
         if index == self.INTERVIEW and current != self.INTERVIEW:
             self.interview.open()
+        if current == self.STORY and index != self.STORY:
+            self.story.leave()
+        if index == self.STORIES:
+            self.stories.refresh()
         self._stack.setCurrentIndex(index)
-        button = self._nav.button(index)
+        self._scroll_to_top(index)
+        button = self._nav.button(self.STORIES if index == self.STORY else index)
         if button is not None:
             button.setChecked(True)
         if index == self.QUEST:
@@ -201,6 +229,10 @@ class MainWindow(QMainWindow):
         self._install.hide()
 
     def _transcription_finished(self, story_id: int) -> None:
+        if self._stack.currentIndex() == self.STORIES:
+            self.stories.refresh()
+        if self._stack.currentIndex() == self.STORY and self.story.story_id == story_id:
+            self.story.reload()
         current, waiting = self._services.transcription.snapshot()
         if current is None and not waiting:
             self._job_bar.hide()
@@ -234,6 +266,7 @@ class MainWindow(QMainWindow):
         if self._may_leave_interview():
             # Le récit en cours de transcription sera repris au prochain lancement.
             self._services.transcription.shutdown(timeout=0)
+            self.story.leave()
             event.accept()
         else:
             event.ignore()

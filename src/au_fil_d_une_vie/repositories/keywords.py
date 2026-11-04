@@ -118,6 +118,24 @@ class KeywordRepository:
         ).fetchall()
         return {row["id"]: Keyword(row["id"], row["lemma"], row["label"]) for row in rows}
 
+    def validated_by_story(self) -> dict[int, list[Keyword]]:
+        """Mots validés de chaque récit, les plus forts d'abord."""
+        rows = self._conn.execute(
+            """
+            SELECT sk.story_id, k.id, k.lemma, k.label
+            FROM story_keyword AS sk
+            JOIN keyword AS k ON k.id = sk.keyword_id
+            WHERE sk.is_validated = 1
+            ORDER BY sk.story_id, sk.weight DESC, k.label
+            """
+        ).fetchall()
+        result: dict[int, list[Keyword]] = {}
+        for row in rows:
+            result.setdefault(row["story_id"], []).append(
+                Keyword(row["id"], row["lemma"], row["label"])
+            )
+        return result
+
     def validated_pairs(self) -> list[tuple[int, int]]:
         """Couples (récit, mot-clé) validés, récits masqués exclus. Base du calcul des liens."""
         rows = self._conn.execute(
