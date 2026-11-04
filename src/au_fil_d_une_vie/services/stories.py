@@ -47,6 +47,7 @@ class StoryCard:
     duration_s: float
     status: StoryStatus
     is_hidden: bool
+    in_book: bool
     link_count: int
     excerpt: str | None
     tags: list[Tag]
@@ -262,6 +263,9 @@ class StoryService:
     def save_note(self, story_id: int, content: str) -> None:
         self._notes.save(story_id, content)
 
+    def set_in_book(self, story_id: int, in_book: bool) -> None:
+        self._stories.set_in_book(story_id, in_book)
+
     def set_hidden(self, story_id: int, hidden: bool) -> None:
         self._stories.set_hidden(story_id, hidden)
 
@@ -293,6 +297,7 @@ class StoryService:
             duration_s=row.story.duration_s,
             status=row.story.status,
             is_hidden=row.story.is_hidden,
+            in_book=row.story.in_book,
             link_count=link_count,
             excerpt=excerpt(row.text) if row.text else None,
             tags=tags,

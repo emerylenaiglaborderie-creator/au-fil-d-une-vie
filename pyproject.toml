@@ -27,6 +27,7 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "pytest-qt>=4.5.0",
+    "pypdf>=6.21.4",
 ]
 
 [build-system]
@@ -65,3 +66,8 @@ ignore_missing_imports = true
 
 [tool.uv.sources]
 fr-core-news-md = { url = "https://github.com/explosion/spacy-models/releases/download/fr_core_news_md-3.8.0/fr_core_news_md-3.8.0-py3-none-any.whl" }
+
+[[tool.mypy.overrides]]
+# ReportLab n'est pas typé : on hérite de ses classes (Flowable, BaseDocTemplate).
+module = ["au_fil_d_une_vie.services.book_pdf"]
+disallow_subclassing_any = false

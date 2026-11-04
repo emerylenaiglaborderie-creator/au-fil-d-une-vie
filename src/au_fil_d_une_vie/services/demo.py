@@ -66,6 +66,7 @@ def load_demo(
         )
         transcripts_repo.save_raw(record.id, story["text"])
         stories_repo.set_status(record.id, StoryStatus.TRANSCRIBED)
+        stories_repo.set_in_book(record.id, story.get("in_book", True))
         for label in story["keywords"]:
             keywords_repo.add_validated(record.id, lemma_of(label, analyzer), label)
         created[record.id] = story["keywords"]

@@ -408,3 +408,32 @@ def test_les_titres_du_graphe_tiennent_sur_deux_lignes(window: MainWindow) -> No
     assert all(metrics.horizontalAdvance(ligne) <= 134 for ligne in lignes)
     deux = two_lines("Comment as-tu rencontré Papi ?", metrics, 134)
     assert " ".join(deux) == "Comment as-tu rencontré Papi ?"
+
+
+# Livre de famille
+
+
+def test_la_fiche_ajoute_et_retire_du_livre(fiche: MainWindow, services: Services) -> None:
+    ecran = fiche.story
+    story_id = ecran.story_id or 0
+    assert ecran._book.text() == "Retirer du livre de famille"  # la démo est déjà dans le livre
+    ecran._toggle_book()
+    carte = next(c for c in services.stories.cards() if c.id == story_id)
+    assert not carte.in_book
+    assert ecran._book.text() == "Ajouter au livre de famille"
+
+
+def test_creer_le_livre_depuis_la_fenetre(
+    qtbot: QtBot, window: MainWindow, services: Services, tmp_path: Path
+) -> None:
+    dialogue = window.open_book()
+    qtbot.addWidget(dialogue)
+    assert dialogue._count.text() == "6 récits choisis"
+    dialogue._check_all(False)
+    assert not dialogue._create.isEnabled()
+    dialogue._check_all(True)
+    chemin = tmp_path / "livre.pdf"
+    with qtbot.waitSignal(dialogue.created, timeout=20_000):
+        dialogue.export_to(chemin)
+    assert chemin.read_bytes().startswith(b"%PDF")
+    assert dialogue._done.isVisibleTo(dialogue)

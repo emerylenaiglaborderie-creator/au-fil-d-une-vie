@@ -240,3 +240,12 @@ def test_carnet(conn: sqlite3.Connection, scene: Scene) -> None:
     assert note is not None and note.content == "Ce que j'en retiens"
     repo.save(recit.id, "   ")
     assert repo.get(recit.id) is None
+
+
+def test_un_nouveau_recit_n_est_pas_dans_le_livre(conn: sqlite3.Connection, scene: Scene) -> None:
+    repo = StoryRepository(conn)
+    recit = scene.story(conn, scene.yvonne, scene.q_ecole)
+    assert not recit.in_book
+    repo.set_in_book(recit.id, True)
+    relu = repo.get(recit.id)
+    assert relu is not None and relu.in_book

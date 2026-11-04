@@ -22,6 +22,7 @@ from au_fil_d_une_vie.repositories import (
     TranscriptRepository,
     connect,
 )
+from au_fil_d_une_vie.services.book import BookService
 from au_fil_d_une_vie.services.demo import load_demo
 from au_fil_d_une_vie.services.graph import GraphService
 from au_fil_d_une_vie.services.keywords import TextAnalyzer
@@ -57,6 +58,7 @@ class Services:
     links: LinkService
     stories: StoryService
     graph: GraphService
+    book: BookService
     recording: RecordingService
     transcription: TranscriptionQueue
     models: WhisperModels
@@ -78,6 +80,15 @@ def build_services(
 ) -> Services:
     keywords = KeywordRepository(conn)
     links = LinkService(keywords)
+    stories = StoryService(
+        StoryRepository(conn),
+        TranscriptRepository(conn),
+        keywords,
+        NoteRepository(conn),
+        links,
+        audio_dir,
+        _analyzer(),
+    )
     models = WhisperModels(models_dir or config.models_dir())
 
     def transcriber() -> Transcriber:
@@ -88,16 +99,9 @@ def build_services(
     return Services(
         quest=QuestService(ProfileRepository(conn), PersonRepository(conn), ThemeRepository(conn)),
         links=links,
-        stories=StoryService(
-            StoryRepository(conn),
-            TranscriptRepository(conn),
-            keywords,
-            NoteRepository(conn),
-            links,
-            audio_dir,
-            _analyzer(),
-        ),
+        stories=stories,
         graph=GraphService(StoryRepository(conn), keywords),
+        book=BookService(stories, ProfileRepository(conn), ThemeRepository(conn)),
         recording=RecordingService(StoryRepository(conn), audio_dir, microphone),
         transcription=TranscriptionQueue(
             lambda: connect(db_path), audio_dir, transcriber, _analyzer
