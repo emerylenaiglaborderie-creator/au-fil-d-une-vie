@@ -26,6 +26,7 @@ from au_fil_d_une_vie.ui.screens.settings import SettingsScreen
 from au_fil_d_une_vie.ui.screens.stories import StoriesScreen
 from au_fil_d_une_vie.ui.screens.story import StoryScreen
 from au_fil_d_une_vie.ui.screens.welcome import WelcomeScreen
+from au_fil_d_une_vie.ui.tracks_dialog import TracksDialog
 from au_fil_d_une_vie.ui.widgets import (
     NavLink,
     Picture,
@@ -63,6 +64,7 @@ class MainWindow(QMainWindow):
         self.quest.interview_requested.connect(self._open_interview)
         self.quest.theme_opened.connect(self._open_theme)
         self.quest.manage_people.connect(self.open_people)
+        self.quest.manage_tracks.connect(self.open_tracks)
         self.interview = InterviewScreen(services.quest, services.recording)
         self.interview.back_to_quest.connect(lambda: self.show_screen(self.QUEST))
         self.interview.story_saved.connect(self._story_saved)
@@ -72,6 +74,7 @@ class MainWindow(QMainWindow):
         self.settings = SettingsScreen(services)
         self.settings.preferences_changed.connect(self.preferences_changed)
         self.settings.manage_people.connect(self.open_people)
+        self.settings.manage_tracks.connect(self.open_tracks)
         self.settings.install_model.connect(self.offer_model_setup)
         self._disposed = False
         self.stories = StoriesScreen(services.stories)
@@ -126,8 +129,17 @@ class MainWindow(QMainWindow):
         dialog.open()
         return dialog
 
+    def open_tracks(self) -> TracksDialog:
+        dialog = TracksDialog(self._services.tracks, self)
+        dialog.finished.connect(lambda _result: self._after_people())
+        dialog.open()
+        return dialog
+
     def _after_people(self) -> None:
+        """Après une modification des proches ou des pistes : rafraîchir ce qui en dépend."""
         self.quest.refresh()
+        if self._stack.currentIndex() == self.SETTINGS:
+            self.settings.refresh()
         if not self.interview.is_recording():
             self.interview.open()
 

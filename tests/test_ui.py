@@ -13,7 +13,7 @@ from au_fil_d_une_vie.services.fake_audio import FakeAudioInput, tone
 from au_fil_d_une_vie.services.recording import RecordingState
 from au_fil_d_une_vie.ui.app import create_application
 from au_fil_d_une_vie.ui.main_window import MainWindow
-from au_fil_d_une_vie.ui.widgets import LeafToggle, PrimaryButton
+from au_fil_d_une_vie.ui.widgets import ClickableFrame, LeafToggle, PrimaryButton
 
 
 @pytest.fixture(autouse=True)
@@ -566,3 +566,50 @@ def test_choisir_le_theme_nuit_reconstruit_la_fenetre(
     assert controleur.window.current_screen() == MainWindow.SETTINGS
     assert theme.DARK_MODE
     qtbot.addWidget(controleur.window)
+
+
+# Pistes personnalisables
+
+
+def test_creer_une_piste_et_une_question(
+    qtbot: QtBot, window: MainWindow, services: Services
+) -> None:
+    dialogue = window.open_tracks()
+    qtbot.addWidget(dialogue)
+    dialogue._new_theme.setText("Voyages")
+    dialogue._add_theme()
+    assert dialogue._theme_name.text() == "Voyages"
+    dialogue._question.setText("Quel a été ton plus beau voyage ?")
+    dialogue._submit_question()
+    voyages = next(t for t in services.tracks.all() if t.theme.label == "Voyages")
+    assert [q.question.text for q in voyages.questions] == ["Quel a été ton plus beau voyage ?"]
+    dialogue.accept()
+    tuiles = [
+        t.accessibleName()
+        for t in window.quest.findChildren(ClickableFrame)
+        if t.objectName() == "tile"
+    ]
+    assert any(nom.startswith("Voyages") for nom in tuiles)
+
+
+def test_une_piste_avec_des_recits_reste(
+    qtbot: QtBot, window: MainWindow, services: Services
+) -> None:
+    dialogue = window.open_tracks()
+    qtbot.addWidget(dialogue)
+    dialogue.confirm = lambda question: True  # type: ignore[method-assign]
+    enfance = next(t for t in services.tracks.all() if t.theme.label == "Enfance")
+    dialogue._select(enfance.theme.id)
+    dialogue._remove_theme()
+    assert "Enfance" in [t.theme.label for t in services.tracks.all()]
+    assert "récits" in dialogue._error.text()
+
+
+def test_renommer_une_piste(qtbot: QtBot, window: MainWindow, services: Services) -> None:
+    dialogue = window.open_tracks()
+    qtbot.addWidget(dialogue)
+    cuisine = next(t for t in services.tracks.all() if t.theme.label == "Cuisine")
+    dialogue._select(cuisine.theme.id)
+    dialogue._theme_name.setText("Cuisine et repas")
+    dialogue._rename_theme()
+    assert "Cuisine et repas" in [t.theme.label for t in services.tracks.all()]

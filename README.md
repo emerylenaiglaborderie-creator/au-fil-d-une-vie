@@ -32,6 +32,7 @@ Projet de BTS SIO option SLAM.
 | Graphe des liens (récits et mots communs, networkx) | fait |
 | Premier lancement (prénom, accord parental sous 15 ans) et gestion des proches | fait |
 | Paramètres : prénom, thème Jour / Nuit / comme l'ordinateur ; icône de l'application | fait |
+| Pistes personnalisables : créer, renommer, réordonner, supprimer pistes et questions | fait |
 | Livre de famille en PDF (sommaire, Voir aussi, index des mots) : [exemple](docs/captures/livre-exemple.pdf) | fait |
 
 ## Stack technique

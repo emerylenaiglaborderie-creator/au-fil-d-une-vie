@@ -33,6 +33,7 @@ class QuestScreen(QWidget):
     interview_requested = Signal(int, int)  # question_id, person_id
     theme_opened = Signal(int)  # theme_id
     manage_people = Signal()
+    manage_tracks = Signal()
 
     TILE_COLUMNS = 3
 
@@ -69,9 +70,13 @@ class QuestScreen(QWidget):
         main.addSpacing(34)
         main.addWidget(section_title("Les pistes à explorer"))
         main.addSpacing(6)
+        edit_tracks = link_button("Modifier les pistes et les questions")
+        edit_tracks.clicked.connect(self.manage_tracks)
         self._tiles = QGridLayout()
         self._tiles.setSpacing(16)
         main.addLayout(self._tiles)
+        main.addSpacing(8)
+        main.addWidget(edit_tracks, 0, Qt.AlignmentFlag.AlignLeft)
         main.addStretch(1)
         root.addLayout(main, 1)
 

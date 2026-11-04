@@ -33,7 +33,7 @@ from au_fil_d_une_vie.services.quest import QuestService
 from au_fil_d_une_vie.services.recording import AudioInput, RecordingService
 from au_fil_d_une_vie.services.settings import SettingsStore
 from au_fil_d_une_vie.services.stories import StoryService
-from au_fil_d_une_vie.services.tracks import seed_tracks
+from au_fil_d_une_vie.services.tracks import TrackService, seed_tracks
 from au_fil_d_une_vie.services.transcription import Transcriber
 from au_fil_d_une_vie.services.transcription_queue import TranscriptionQueue
 from au_fil_d_une_vie.services.whisper import DEFAULT_SIZE, WhisperModels
@@ -61,6 +61,7 @@ class Services:
     quest: QuestService
     profile: ProfileService
     people: PeopleService
+    tracks: TrackService
     links: LinkService
     stories: StoryService
     graph: GraphService
@@ -109,6 +110,7 @@ def build_services(
         links=links,
         profile=ProfileService(ProfileRepository(conn)),
         people=PeopleService(PersonRepository(conn), StoryRepository(conn), audio_dir),
+        tracks=TrackService(ThemeRepository(conn)),
         stories=stories,
         graph=GraphService(StoryRepository(conn), keywords),
         book=BookService(stories, ProfileRepository(conn), ThemeRepository(conn)),

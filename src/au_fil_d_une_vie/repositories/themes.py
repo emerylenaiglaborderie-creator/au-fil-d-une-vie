@@ -97,3 +97,41 @@ class ThemeRepository:
     def get_theme(self, theme_id: int) -> Theme | None:
         row = self._conn.execute("SELECT * FROM theme WHERE id = ?", (theme_id,)).fetchone()
         return _to_theme(row) if row else None
+
+    # Personnalisation des pistes
+
+    def rename_theme(self, theme_id: int, label: str) -> None:
+        with self._conn:
+            self._conn.execute("UPDATE theme SET label = ? WHERE id = ?", (label, theme_id))
+
+    def delete_theme(self, theme_id: int) -> None:
+        """Supprime la piste et ses questions (refusé par la base si une question a des récits)."""
+        with self._conn:
+            self._conn.execute("DELETE FROM theme WHERE id = ?", (theme_id,))
+
+    def set_theme_positions(self, ordered_ids: list[int]) -> None:
+        """Réécrit l'ordre des pistes (1, 2, 3...) dans une seule transaction."""
+        with self._conn:
+            self._conn.executemany(
+                "UPDATE theme SET position = ? WHERE id = ?",
+                [(position, theme_id) for position, theme_id in enumerate(ordered_ids, start=1)],
+            )
+
+    def slug_exists(self, slug: str) -> bool:
+        row = self._conn.execute("SELECT 1 FROM theme WHERE slug = ?", (slug,)).fetchone()
+        return row is not None
+
+    def update_question(self, question_id: int, text: str) -> None:
+        with self._conn:
+            self._conn.execute("UPDATE question SET text = ? WHERE id = ?", (text, question_id))
+
+    def delete_question(self, question_id: int) -> None:
+        with self._conn:
+            self._conn.execute("DELETE FROM question WHERE id = ?", (question_id,))
+
+    def story_counts_by_question(self) -> dict[int, int]:
+        """Nombre de récits (masqués compris) par question."""
+        rows = self._conn.execute(
+            "SELECT question_id, COUNT(*) AS n FROM story GROUP BY question_id"
+        ).fetchall()
+        return {row["question_id"]: row["n"] for row in rows}

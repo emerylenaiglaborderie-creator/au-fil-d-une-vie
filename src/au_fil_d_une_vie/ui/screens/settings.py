@@ -25,6 +25,7 @@ THEME_CHOICES = (("auto", "Comme l'ordinateur"), ("light", "Jour"), ("dark", "Nu
 class SettingsScreen(QWidget):
     preferences_changed = Signal()
     manage_people = Signal()
+    manage_tracks = Signal()
     install_model = Signal()
 
     def __init__(self, services: Services, parent: QWidget | None = None) -> None:
@@ -47,6 +48,7 @@ class SettingsScreen(QWidget):
         right = QVBoxLayout()
         right.setSpacing(28)
         right.addWidget(self._people_card())
+        right.addWidget(self._tracks_card())
         right.addWidget(self._data_card())
         right.addStretch(1)
         columns.addLayout(left, 1)
@@ -119,6 +121,15 @@ class SettingsScreen(QWidget):
         box.addWidget(manage, 0, Qt.AlignmentFlag.AlignLeft)
         return card
 
+    def _tracks_card(self) -> QFrame:
+        card, box = self._card("Pistes et questions")
+        self._tracks_count = label("", theme.SERIF, 17, wrap=True)
+        box.addWidget(self._tracks_count)
+        manage = link_button("Créer, renommer ou réordonner les pistes")
+        manage.clicked.connect(self.manage_tracks)
+        box.addWidget(manage, 0, Qt.AlignmentFlag.AlignLeft)
+        return card
+
     def _data_card(self) -> QFrame:
         card, box = self._card("Mes données")
         box.addWidget(
@@ -170,6 +181,9 @@ class SettingsScreen(QWidget):
             if count == 0
             else f"{count} proche{'s' if count > 1 else ''} dans ta quête."
         )
+        tracks = self._services.tracks.all()
+        questions = sum(len(t.questions) for t in tracks)
+        self._tracks_count.setText(f"{len(tracks)} pistes, {questions} questions.")
         ready = self._services.transcription_ready()
         size = self._services.model_size
         self._model.setText(
