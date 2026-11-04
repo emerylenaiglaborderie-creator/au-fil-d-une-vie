@@ -16,8 +16,8 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from au_fil_d_une_vie.bootstrap import open_services  # noqa: E402
-from au_fil_d_une_vie.services.fake_audio import FakeAudioInput, tone  # noqa: E402
 from au_fil_d_une_vie.services.book_pdf import BookAssets, render_book  # noqa: E402
+from au_fil_d_une_vie.services.fake_audio import FakeAudioInput, tone  # noqa: E402
 from au_fil_d_une_vie.ui import theme  # noqa: E402
 from au_fil_d_une_vie.ui.app import create_application  # noqa: E402
 from au_fil_d_une_vie.ui.main_window import MainWindow  # noqa: E402
