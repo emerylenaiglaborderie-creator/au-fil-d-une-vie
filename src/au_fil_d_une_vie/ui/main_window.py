@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from au_fil_d_une_vie.bootstrap import Services
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.book_dialog import BookDialog
 from au_fil_d_une_vie.ui.bridge import TranscriptionBridge
@@ -26,6 +27,7 @@ from au_fil_d_une_vie.ui.screens.settings import SettingsScreen
 from au_fil_d_une_vie.ui.screens.stories import StoriesScreen
 from au_fil_d_une_vie.ui.screens.story import StoryScreen
 from au_fil_d_une_vie.ui.screens.welcome import WelcomeScreen
+from au_fil_d_une_vie.ui.tracks_dialog import TracksDialog
 from au_fil_d_une_vie.ui.widgets import (
     NavLink,
     Picture,
@@ -63,15 +65,20 @@ class MainWindow(QMainWindow):
         self.quest.interview_requested.connect(self._open_interview)
         self.quest.theme_opened.connect(self._open_theme)
         self.quest.manage_people.connect(self.open_people)
+        self.quest.manage_tracks.connect(self.open_tracks)
         self.interview = InterviewScreen(services.quest, services.recording)
         self.interview.back_to_quest.connect(lambda: self.show_screen(self.QUEST))
         self.interview.story_saved.connect(self._story_saved)
         self.interview.manage_people.connect(self.open_people)
-        self.welcome = WelcomeScreen(services.profile, services.people)
+        self.welcome = WelcomeScreen(
+            services.profile, services.people, services.tracks, services.settings
+        )
         self.welcome.finished.connect(self._welcome_done)
+        self.welcome.language_changed.connect(self.preferences_changed)
         self.settings = SettingsScreen(services)
         self.settings.preferences_changed.connect(self.preferences_changed)
         self.settings.manage_people.connect(self.open_people)
+        self.settings.manage_tracks.connect(self.open_tracks)
         self.settings.install_model.connect(self.offer_model_setup)
         self._disposed = False
         self.stories = StoriesScreen(services.stories)
@@ -126,8 +133,17 @@ class MainWindow(QMainWindow):
         dialog.open()
         return dialog
 
+    def open_tracks(self) -> TracksDialog:
+        dialog = TracksDialog(self._services.tracks, self)
+        dialog.finished.connect(lambda _result: self._after_people())
+        dialog.open()
+        return dialog
+
     def _after_people(self) -> None:
+        """Après une modification des proches ou des pistes : rafraîchir ce qui en dépend."""
         self.quest.refresh()
+        if self._stack.currentIndex() == self.SETTINGS:
+            self.settings.refresh()
         if not self.interview.is_recording():
             self.interview.open()
 
@@ -158,7 +174,9 @@ class MainWindow(QMainWindow):
         """Quitter l'interview pendant un enregistrement : demander, puis effacer la prise."""
         if not self.interview.is_recording():
             return True
-        if not self.interview.confirm("Un enregistrement est en cours. L'arrêter et l'effacer ?"):
+        if not self.interview.confirm(
+            _("Un enregistrement est en cours. L'arrêter et l'effacer ?")
+        ):
             return False
         self.interview.abandon()
         return True
@@ -223,13 +241,13 @@ class MainWindow(QMainWindow):
         nav.setContentsMargins(0, 0, 0, 0)
         nav.setSpacing(12)
         self._nav = QButtonGroup(self)
-        for index, text in enumerate(("Ma quête", "Interview", "Récits", "Graphe")):
+        for index, text in enumerate((_("Ma quête"), _("Interview"), _("Récits"), _("Graphe"))):
             link = NavLink(text)
             self._nav.addButton(link, index)
             nav.addWidget(link)
         self._nav.idClicked.connect(self.show_screen)
         nav.addSpacing(20)
-        book = outline_button("Livre de famille")
+        book = outline_button(_("Livre de famille"))
         book.clicked.connect(self.open_book)
         nav.addWidget(book)
         gear = QPushButton()
@@ -237,8 +255,8 @@ class MainWindow(QMainWindow):
         gear.setIcon(QIcon(icon_pixmap("gear", 20, theme.INK_SOFT)))
         gear.setIconSize(QSize(20, 20))
         gear.setFixedWidth(48)
-        gear.setToolTip("Paramètres")
-        gear.setAccessibleName("Paramètres")
+        gear.setToolTip(_("Paramètres"))
+        gear.setAccessibleName(_("Paramètres"))
         gear.setCursor(Qt.CursorShape.PointingHandCursor)
         gear.clicked.connect(lambda: self.show_screen(self.SETTINGS))
         nav.addWidget(gear)
@@ -252,7 +270,7 @@ class MainWindow(QMainWindow):
         row = QHBoxLayout(footer)
         row.setContentsMargins(48, 10, 48, 10)
         row.setSpacing(12)
-        text = label(PRIVACY, px=14, color=theme.MUTED)
+        text = label(_(PRIVACY), px=14, color=theme.MUTED)
         text.setObjectName("footerText")
         row.addWidget(text)
         row.addStretch(1)
@@ -261,7 +279,7 @@ class MainWindow(QMainWindow):
         self._job_bar = ThreadProgress(140)
         self._job_bar.hide()
         row.addWidget(self._job_bar)
-        self._install = link_button("Installer")
+        self._install = link_button(_("Installer"))
         self._install.setMinimumHeight(28)
         self._install.clicked.connect(self.offer_model_setup)
         self._install.hide()
@@ -301,9 +319,9 @@ class MainWindow(QMainWindow):
 
     def _transcription_progress(self, story_id: int, fraction: float) -> None:
         _current, waiting = self._services.transcription.snapshot()
-        suffix = f" · {waiting} en attente" if waiting else ""
+        suffix = _(" · {count} en attente").format(count=waiting) if waiting else ""
         self._job_text.setStyleSheet(f"color: {theme.MUTED};")
-        self._job_text.setText(f"Texte du récit en préparation{suffix}")
+        self._job_text.setText(_("Texte du récit en préparation") + suffix)
         self._job_bar.set_value(fraction)
         self._job_bar.show()
         self._install.hide()
@@ -317,13 +335,13 @@ class MainWindow(QMainWindow):
         if current is None and not waiting:
             self._job_bar.hide()
             self._job_text.setStyleSheet(f"color: {theme.LEAF_TEXT};")
-            self._job_text.setText("Le texte du récit est prêt.")
+            self._job_text.setText(_("Le texte du récit est prêt."))
             self._clear_job.start()
 
     def _transcription_failed(self, story_id: int, message: str) -> None:
         self._job_bar.hide()
         self._job_text.setStyleSheet(f"color: {theme.RED_TEXT};")
-        self._job_text.setText("Le texte d'un récit n'a pas pu être préparé.")
+        self._job_text.setText(_("Le texte d'un récit n'a pas pu être préparé."))
         self._job_text.setToolTip(message)
         self._clear_job.start()
 
@@ -339,7 +357,7 @@ class MainWindow(QMainWindow):
             self._install.hide()
         else:
             self._job_text.setStyleSheet(f"color: {theme.MUTED};")
-            self._job_text.setText("Modèle de transcription non installé.")
+            self._job_text.setText(_("Modèle de transcription non installé."))
             self._install.show()
 
     def current_screen(self) -> int:

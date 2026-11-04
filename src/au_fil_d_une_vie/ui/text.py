@@ -1,23 +1,17 @@
-"""Petits utilitaires de texte pour l'interface."""
+"""Petits utilitaires de texte pour l'interface (selon la langue choisie)."""
 
 from datetime import datetime
 
+from au_fil_d_une_vie import i18n
+from au_fil_d_une_vie.i18n import _
 
-def plural(count: int, singular: str, plural_form: str) -> str:
-    """« 1 récit », « 6 récits », « aucun » n'est pas utilisé : on affiche 0."""
-    return f"{count} {singular if count <= 1 else plural_form}"
-
-
-MONTHS = (
-    "janv.", "févr.", "mars", "avr.", "mai", "juin",
-    "juil.", "août", "sept.", "oct.", "nov.", "déc.",
-)  # fmt: skip
+plural = i18n.plural
 
 
 def short_date(value: datetime) -> str:
-    """« 12 oct. 2026 », en heure locale."""
+    """« 12 oct. 2026 » ou « Oct 12, 2026 », en heure locale."""
     local = value.astimezone()
-    return f"{local.day} {MONTHS[local.month - 1]} {local.year}"
+    return i18n.short_date(local.day, local.month, local.year)
 
 
 def duration(seconds: float) -> str:
@@ -33,4 +27,4 @@ def clock(seconds: float) -> str:
 
 
 def links_label(count: int) -> str:
-    return "aucun lien" if count == 0 else plural(count, "lien", "liens")
+    return _("aucun lien") if count == 0 else plural(count, "lien", "liens")

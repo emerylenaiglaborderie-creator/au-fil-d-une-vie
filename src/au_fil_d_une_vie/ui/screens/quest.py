@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.services.quest import QuestOverview, QuestService, Track
 from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.text import plural
@@ -33,6 +34,7 @@ class QuestScreen(QWidget):
     interview_requested = Signal(int, int)  # question_id, person_id
     theme_opened = Signal(int)  # theme_id
     manage_people = Signal()
+    manage_tracks = Signal()
 
     TILE_COLUMNS = 3
 
@@ -50,7 +52,7 @@ class QuestScreen(QWidget):
 
         main = QVBoxLayout()
         main.setSpacing(10)
-        main.addWidget(eyebrow("Ma quête"))
+        main.addWidget(eyebrow(_("Ma quête")))
         self._hello = label("", theme.SCRIPT, 104, color=theme.INK_SOFT)
         main.addWidget(self._hello)
         self._intro = label("", theme.SERIF, 19, color=theme.MUTED, italic=True, wrap=True)
@@ -67,11 +69,15 @@ class QuestScreen(QWidget):
         main.addWidget(self._card)
 
         main.addSpacing(34)
-        main.addWidget(section_title("Les pistes à explorer"))
+        main.addWidget(section_title(_("Les pistes à explorer")))
         main.addSpacing(6)
+        edit_tracks = link_button(_("Modifier les pistes et les questions"))
+        edit_tracks.clicked.connect(self.manage_tracks)
         self._tiles = QGridLayout()
         self._tiles.setSpacing(16)
         main.addLayout(self._tiles)
+        main.addSpacing(8)
+        main.addWidget(edit_tracks, 0, Qt.AlignmentFlag.AlignLeft)
         main.addStretch(1)
         root.addLayout(main, 1)
 
@@ -79,19 +85,19 @@ class QuestScreen(QWidget):
         aside.setSpacing(4)
         aside.setContentsMargins(0, 16, 0, 0)
         aside.addWidget(Picture(theme.IMAGES / "arbre.png", 340))
-        grows = label("ton arbre pousse", theme.SCRIPT, 46, color=theme.LEAF_TEXT)
+        grows = label(_("ton arbre pousse"), theme.SCRIPT, 46, color=theme.LEAF_TEXT)
         grows.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         aside.addWidget(grows)
         self._summary = label("", px=15, color=theme.MUTED)
         self._summary.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         aside.addWidget(self._summary)
         aside.addSpacing(30)
-        aside.addWidget(section_title("Les personnes à interroger"))
+        aside.addWidget(section_title(_("Les personnes à interroger")))
         aside.addSpacing(4)
         self._rows = QVBoxLayout()
         self._rows.setSpacing(0)
         aside.addLayout(self._rows)
-        manage = link_button("+ Ajouter ou modifier un proche")
+        manage = link_button(_("+ Ajouter ou modifier un proche"))
         manage.clicked.connect(self.manage_people)
         aside.addWidget(manage, 0, Qt.AlignmentFlag.AlignLeft)
         aside.addStretch(1)
@@ -108,11 +114,11 @@ class QuestScreen(QWidget):
         overview = self._service.overview()
         self._track = self._service.next_track(self._skipped)
         name = overview.first_name
-        self._hello.setText(f"Bonjour {name}" if name else "Bonjour")
+        self._hello.setText(_("Bonjour {name}").format(name=name) if name else _("Bonjour"))
         self._intro.setText(
-            "Ton enquête avance. Voici la prochaine piste à suivre."
+            _("Ton enquête avance. Voici la prochaine piste à suivre.")
             if overview.story_count
-            else "Ta quête commence ici. Choisis une piste et pose ta première question."
+            else _("Ta quête commence ici. Choisis une piste et pose ta première question.")
         )
         self._fill_card(overview)
         self._fill_tiles(overview)
@@ -137,15 +143,17 @@ class QuestScreen(QWidget):
         layout = self._card_layout
 
         if self._track is None:
-            layout.addWidget(eyebrow("Bravo", color=theme.RED_TEXT))
+            layout.addWidget(eyebrow(_("Bravo"), color=theme.RED_TEXT))
             layout.addWidget(
-                label("Toutes les pistes ont été explorées.", theme.SERIF, 32, QFont.Weight.Medium)
+                label(
+                    _("Toutes les pistes ont été explorées."), theme.SERIF, 32, QFont.Weight.Medium
+                )
             )
             return
 
         head = QHBoxLayout()
         head.setSpacing(16)
-        head.addWidget(eyebrow("Prochaine piste", color=theme.RED_TEXT))
+        head.addWidget(eyebrow(_("Prochaine piste"), color=theme.RED_TEXT))
         head.addWidget(eyebrow(self._track.theme.label, spacing_em=0.12))
         head.addStretch(1)
         layout.addLayout(head)
@@ -155,7 +163,7 @@ class QuestScreen(QWidget):
 
         ask = QVBoxLayout()
         ask.setSpacing(10)
-        ask.addWidget(eyebrow("À poser à", color=theme.MUTED, spacing_em=0.14))
+        ask.addWidget(eyebrow(_("À poser à"), color=theme.MUTED, spacing_em=0.14))
         toggles = QHBoxLayout()
         toggles.setSpacing(8)
         for index, progress in enumerate(overview.people):
@@ -166,18 +174,18 @@ class QuestScreen(QWidget):
         toggles.addStretch(1)
         ask.addLayout(toggles)
         if not overview.people:
-            add = link_button("Ajoute d'abord un proche à interroger")
+            add = link_button(_("Ajoute d'abord un proche à interroger"))
             add.clicked.connect(self.manage_people)
             ask.addWidget(add, 0, Qt.AlignmentFlag.AlignLeft)
         layout.addLayout(ask)
 
         actions = QHBoxLayout()
         actions.setSpacing(24)
-        launch = PrimaryButton("Lancer l'interview", icon="mic")
+        launch = PrimaryButton(_("Lancer l'interview"), icon="mic")
         launch.setEnabled(bool(overview.people))
         launch.clicked.connect(self._launch)
         actions.addWidget(launch)
-        other = link_button("Une autre piste")
+        other = link_button(_("Une autre piste"))
         other.clicked.connect(self._other_track)
         actions.addWidget(other)
         actions.addStretch(1)
@@ -186,7 +194,7 @@ class QuestScreen(QWidget):
 
         layout.addWidget(
             label(
-                "Prévois une dizaine de minutes, un endroit calme et l'accord de la personne.",
+                _("Prévois une dizaine de minutes, un endroit calme et l'accord de la personne."),
                 theme.SERIF,
                 15,
                 color=theme.MUTED,
@@ -199,13 +207,20 @@ class QuestScreen(QWidget):
         clear_layout(self._tiles)
         for index, progress in enumerate(overview.themes):
             tile = ClickableFrame("tile")
-            tile.setAccessibleName(f"{progress.theme.label}, {progress.done} sur {progress.total}")
+            tile.setAccessibleName(
+                f"{progress.theme.label}, "
+                + _("{done} sur {total}").format(done=progress.done, total=progress.total)
+            )
             box = QVBoxLayout(tile)
             box.setContentsMargins(22, 20, 22, 20)
             box.setSpacing(12)
             box.addWidget(label(progress.theme.label, theme.SERIF, 23, QFont.Weight.Medium))
             box.addWidget(DotRow(progress.done, progress.total))
-            status = f"{progress.done} sur {progress.total}" if progress.done else "À commencer"
+            status = (
+                _("{done} sur {total}").format(done=progress.done, total=progress.total)
+                if progress.done
+                else _("À commencer")
+            )
             box.addWidget(label(status, px=14, color=theme.MUTED))
             theme_id = progress.theme.id
             tile.clicked.connect(lambda theme_id=theme_id: self.theme_opened.emit(theme_id))
@@ -217,8 +232,10 @@ class QuestScreen(QWidget):
     def _fill_people(self, overview: QuestOverview) -> None:
         clear_layout(self._rows)
         self._summary.setText(
-            f"{plural(overview.story_count, 'récit recueilli', 'récits recueillis')} auprès de "
-            f"{plural(overview.interviewed_count, 'personne', 'personnes')}"
+            _("{stories} auprès de {people}").format(
+                stories=plural(overview.story_count, "récit recueilli", "récits recueillis"),
+                people=plural(overview.interviewed_count, "personne", "personnes"),
+            )
         )
         for progress in overview.people:
             row = ClickableFrame("row")
@@ -237,7 +254,7 @@ class QuestScreen(QWidget):
             else:
                 line.addWidget(
                     label(
-                        "Pas encore de récit",
+                        _("Pas encore de récit"),
                         px=14,
                         weight=QFont.Weight.DemiBold,
                         color=theme.LEAF_TEXT,

@@ -16,6 +16,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QCheckBox, QFrame, QHBoxLayout, QVBoxLayout, QWidget
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.services.graph import GraphService, GraphView, StoryNode
 from au_fil_d_une_vie.services.stories import StoryService
 from au_fil_d_une_vie.ui import theme
@@ -86,7 +87,7 @@ class GraphBoard(QWidget):
         super().__init__(parent)
         self.setFixedSize(BOARD)
         self.setMouseTracking(True)
-        self.setAccessibleName("Graphe des liens entre les récits")
+        self.setAccessibleName(_("Graphe des liens entre les récits"))
         self._view: GraphView | None = None
         self._selected: int | None = None
         self._show_words = True
@@ -122,7 +123,7 @@ class GraphBoard(QWidget):
         ]
         centers = {w.keyword_id: self._point(w.x, w.y) for w in self._view.words}
         labels = {w.keyword_id: w.label for w in self._view.words}
-        for _ in range(60):
+        for _pass in range(60):
             moved = False
             for keyword_id, center in centers.items():
                 rect = self._word_rect(labels[keyword_id], center)
@@ -327,7 +328,7 @@ class GraphBoard(QWidget):
         painter.drawText(
             QRectF(rect.left() - 20, rect.bottom() + 2, rect.width() + 40, 34),
             Qt.AlignmentFlag.AlignHCenter,
-            "pas encore de lien",
+            _("pas encore de lien"),
         )
 
 
@@ -350,11 +351,11 @@ class GraphScreen(QWidget):
         head = QHBoxLayout()
         titles = QVBoxLayout()
         titles.setSpacing(4)
-        titles.addWidget(eyebrow("Graphe des liens"))
-        titles.addWidget(label("Au fil des mots", theme.SCRIPT, 96, color=theme.INK_SOFT))
+        titles.addWidget(eyebrow(_("Graphe des liens")))
+        titles.addWidget(label(_("Au fil des mots"), theme.SCRIPT, 96, color=theme.INK_SOFT))
         head.addLayout(titles)
         head.addStretch(1)
-        self._words = QCheckBox("Afficher les mots communs")
+        self._words = QCheckBox(_("Afficher les mots communs"))
         self._words.setFont(theme.font(theme.SANS, 15, QFont.Weight.Medium))
         self._words.setCursor(Qt.CursorShape.PointingHandCursor)
         self._words.setChecked(True)
@@ -373,7 +374,7 @@ class GraphScreen(QWidget):
         self._summary = label("", px=15, color=theme.MUTED)
         board_box.addWidget(self._summary)
         self._empty = label(
-            "Le graphe apparaîtra quand tu auras recueilli et relié quelques récits.",
+            _("Le graphe apparaîtra quand tu auras recueilli et relié quelques récits."),
             theme.SERIF,
             19,
             color=theme.MUTED,
@@ -405,7 +406,7 @@ class GraphScreen(QWidget):
         box = QVBoxLayout(card)
         box.setContentsMargins(26, 26, 26, 22)
         box.setSpacing(10)
-        box.addWidget(eyebrow("Récit sélectionné"))
+        box.addWidget(eyebrow(_("Récit sélectionné")))
         self._card_question = label("", theme.SERIF, 26, QFont.Weight.Medium, wrap=True)
         box.addWidget(self._card_question)
         self._card_person = label("", theme.SCRIPT, 38, color=theme.RED_TEXT)
@@ -414,7 +415,7 @@ class GraphScreen(QWidget):
         self._card_related.opened.connect(self.story_opened)
         box.addWidget(self._card_related)
         self._card_alone = label(
-            "Pas encore de mot en commun avec un autre récit.",
+            _("Pas encore de mot en commun avec un autre récit."),
             theme.SERIF,
             16,
             color=theme.MUTED,
@@ -422,7 +423,7 @@ class GraphScreen(QWidget):
             wrap=True,
         )
         box.addWidget(self._card_alone)
-        self._open = link_button("Ouvrir la fiche")
+        self._open = link_button(_("Ouvrir la fiche"))
         self._open.clicked.connect(self._open_selected)
         box.addWidget(self._open, 0, Qt.AlignmentFlag.AlignLeft)
         self._card = card
@@ -431,12 +432,12 @@ class GraphScreen(QWidget):
     def _build_legend(self) -> QVBoxLayout:
         legend = QVBoxLayout()
         legend.setSpacing(12)
-        legend.addWidget(section_title("Légende"))
+        legend.addWidget(section_title(_("Légende")))
         for kind, text in (
-            ("story", "Un récit"),
-            ("alone", "Un récit sans lien pour l'instant"),
-            ("word", "Un mot qu'on retrouve ailleurs"),
-            ("thread", "Un fil entre un récit et un mot"),
+            ("story", _("Un récit")),
+            ("alone", _("Un récit sans lien pour l'instant")),
+            ("word", _("Un mot qu'on retrouve ailleurs")),
+            ("thread", _("Un fil entre un récit et un mot")),
         ):
             row = QHBoxLayout()
             row.setSpacing(14)
@@ -459,8 +460,10 @@ class GraphScreen(QWidget):
         self._empty.setVisible(not has_stories)
         linked = sum(1 for s in self._view.stories if s.linked)
         self._summary.setText(
-            f"{len(self._view.stories)} récits, {linked} reliés par "
-            f"{len(self._view.words)} mots communs. Double-clique sur un récit pour l'ouvrir."
+            _(
+                "{stories} récits, {linked} reliés par {words} mots communs. "
+                "Double-clique sur un récit pour l'ouvrir."
+            ).format(stories=len(self._view.stories), linked=linked, words=len(self._view.words))
             if has_stories
             else ""
         )

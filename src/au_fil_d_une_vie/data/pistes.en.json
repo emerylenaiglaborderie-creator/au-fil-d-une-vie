@@ -1,0 +1,186 @@
+{
+  "_info": "Tracks and questions offered in every new quest (English).",
+  "themes": [
+    {
+      "slug": "childhood",
+      "label": "Childhood",
+      "questions": [
+        {
+          "key": "ecole",
+          "text": "What was your school like when you were little?",
+          "follow_ups": [
+            "What was your teacher's name?",
+            "What did you keep in your school bag?",
+            "What made you laugh in class?"
+          ]
+        },
+        {
+          "key": "premier-jour",
+          "text": "Tell me about your first day of school.",
+          "follow_ups": [
+            "Who took you there that day?",
+            "Do you remember your teacher?",
+            "How did you feel when you came home?"
+          ]
+        },
+        {
+          "key": "etes",
+          "text": "What did you do during the summers?",
+          "follow_ups": [
+            "Where did you spend your holidays?",
+            "Who did you play with?",
+            "Which summer stayed with you the most?"
+          ]
+        },
+        {
+          "key": "jeux",
+          "text": "What games did you play with your friends?",
+          "follow_ups": [
+            "What was your favourite outdoor game?",
+            "Who did you play with most often?",
+            "Did you have a favourite toy?"
+          ]
+        },
+        {
+          "key": "maison",
+          "text": "What was your childhood home like?"
+        },
+        {
+          "key": "peur",
+          "text": "What were you afraid of as a child?"
+        }
+      ]
+    },
+    {
+      "slug": "encounters",
+      "label": "Encounters",
+      "questions": [
+        {
+          "key": "papi",
+          "text": "How did you meet Grandpa?",
+          "follow_ups": [
+            "What did you think of him the first time?",
+            "Where did you go next?",
+            "What did your parents say?"
+          ]
+        },
+        {
+          "key": "ami",
+          "text": "Who was your best friend?"
+        },
+        {
+          "key": "voyage",
+          "text": "Which encounter changed your life?"
+        },
+        {
+          "key": "voisins",
+          "text": "Do you remember your neighbours?"
+        }
+      ]
+    },
+    {
+      "slug": "food",
+      "label": "Food",
+      "questions": [
+        {
+          "key": "plat",
+          "text": "Which dish reminds you of your childhood?",
+          "follow_ups": [
+            "Who used to make it?",
+            "For which occasions?",
+            "Do you still know how to make it?"
+          ]
+        },
+        {
+          "key": "recette",
+          "text": "Which recipe would you like to pass on to me?"
+        },
+        {
+          "key": "dimanche",
+          "text": "What were Sunday meals like?"
+        },
+        {
+          "key": "marche",
+          "text": "Where did you do the shopping?"
+        },
+        {
+          "key": "rate",
+          "text": "Tell me about a dish that went completely wrong."
+        }
+      ]
+    },
+    {
+      "slug": "work",
+      "label": "Work",
+      "questions": [
+        {
+          "key": "premier-travail",
+          "text": "What was your first job?",
+          "follow_ups": [
+            "How did you find it?",
+            "How much did you earn?",
+            "What did you learn there?"
+          ]
+        },
+        {
+          "key": "reve",
+          "text": "What job did you dream of doing?"
+        },
+        {
+          "key": "collegues",
+          "text": "Do you remember a colleague who stood out?"
+        },
+        {
+          "key": "fierte",
+          "text": "What are you proudest of in your work?"
+        }
+      ]
+    },
+    {
+      "slug": "music",
+      "label": "Music",
+      "questions": [
+        {
+          "key": "chanson",
+          "text": "Which song reminds you of your youth?",
+          "follow_ups": [
+            "Where did you hear it?",
+            "Who did you listen to it with?",
+            "Can you sing me a bit of it?"
+          ]
+        },
+        {
+          "key": "concert",
+          "text": "What was your first concert?"
+        },
+        {
+          "key": "danse",
+          "text": "Where did you go dancing?"
+        }
+      ]
+    },
+    {
+      "slug": "celebrations",
+      "label": "Celebrations",
+      "questions": [
+        {
+          "key": "noel",
+          "text": "How did you celebrate Christmas?",
+          "follow_ups": [
+            "Who came to the house?",
+            "What did you eat?",
+            "Which present do you remember most?"
+          ]
+        },
+        {
+          "key": "anniversaire",
+          "text": "Which birthday stayed with you?"
+        },
+        {
+          "key": "mariage",
+          "text": "Tell me about a family wedding."
+        }
+      ]
+    }
+  ]
+}

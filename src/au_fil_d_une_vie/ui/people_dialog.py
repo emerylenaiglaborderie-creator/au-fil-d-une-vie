@@ -3,6 +3,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QMessageBox, QVBoxLayout, QWidget
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.models import Person
 from au_fil_d_une_vie.services.people import PeopleService, PersonError
 from au_fil_d_une_vie.ui import theme
@@ -16,7 +17,7 @@ class PeopleDialog(QDialog):
         super().__init__(parent)
         self._service = service
         self._editing: int | None = None
-        self.setWindowTitle("Mes proches")
+        self.setWindowTitle(_("Mes proches"))
         self.setModal(True)
         self.setFixedWidth(640)
         self.setStyleSheet(f"QDialog {{ background: {theme.CREAM}; }}")
@@ -24,13 +25,13 @@ class PeopleDialog(QDialog):
         box = QVBoxLayout(self)
         box.setContentsMargins(40, 30, 40, 30)
         box.setSpacing(12)
-        box.addWidget(label("Mes proches", theme.SCRIPT, 56, color=theme.RED_TEXT))
-        box.addWidget(section_title("Les personnes à interroger"))
+        box.addWidget(label(_("Mes proches"), theme.SCRIPT, 56, color=theme.RED_TEXT))
+        box.addWidget(section_title(_("Les personnes à interroger")))
         self._rows = QVBoxLayout()
         self._rows.setSpacing(0)
         box.addLayout(self._rows)
         box.addSpacing(12)
-        self._form_title = label("Ajouter un proche", theme.SERIF, 17)
+        self._form_title = label(_("Ajouter un proche"), theme.SERIF, 17)
         box.addWidget(self._form_title)
         self.form = PersonForm()
         self.form.submitted.connect(self._submit)
@@ -38,7 +39,7 @@ class PeopleDialog(QDialog):
         self._error = label("", px=14, color=theme.RED_TEXT, wrap=True)
         self._error.hide()
         box.addWidget(self._error)
-        close = link_button("Fermer")
+        close = link_button(_("Fermer"))
         close.clicked.connect(self.accept)
         box.addWidget(close, 0, Qt.AlignmentFlag.AlignRight)
         self.refresh()
@@ -48,7 +49,9 @@ class PeopleDialog(QDialog):
         people = self._service.all()
         if not people:
             self._rows.addWidget(
-                label("Personne pour l'instant.", theme.SERIF, 16, color=theme.MUTED, italic=True)
+                label(
+                    _("Personne pour l'instant."), theme.SERIF, 16, color=theme.MUTED, italic=True
+                )
             )
         for person, count in people:
             self._rows.addWidget(self._row(person, count))
@@ -63,14 +66,14 @@ class PeopleDialog(QDialog):
         names.setSpacing(0)
         names.addWidget(label(person.display_name, theme.SERIF, 19))
         relation = person.relationship
-        stories = plural(count, "récit", "récits") if count else "pas encore de récit"
+        stories = plural(count, _("récit"), _("récits")) if count else _("pas encore de récit")
         detail = f"{relation[:1].upper()}{relation[1:]} · {stories}"
         names.addWidget(label(detail, px=13, color=theme.MUTED))
         line.addLayout(names, 1)
-        edit = link_button("Modifier")
+        edit = link_button(_("Modifier"))
         edit.clicked.connect(lambda: self._start_edit(person))
         line.addWidget(edit)
-        delete = link_button("Supprimer")
+        delete = link_button(_("Supprimer"))
         delete.setStyleSheet(f"color: {theme.RED_TEXT};")
         delete.clicked.connect(lambda: self._delete(person, count))
         line.addWidget(delete)
@@ -78,15 +81,15 @@ class PeopleDialog(QDialog):
 
     def _start_edit(self, person: Person) -> None:
         self._editing = person.id
-        self._form_title.setText(f"Modifier {person.display_name}")
-        self.form.button.setText("Enregistrer")
+        self._form_title.setText(_("Modifier {name}").format(name=person.display_name))
+        self.form.button.setText(_("Enregistrer"))
         self.form.set_values(person.display_name, person.relationship)
         self.form.name.setFocus()
 
     def _reset_form(self) -> None:
         self._editing = None
-        self._form_title.setText("Ajouter un proche")
-        self.form.button.setText("Ajouter")
+        self._form_title.setText(_("Ajouter un proche"))
+        self.form.button.setText(_("Ajouter"))
         self.form.clear()
 
     def _submit(self, name: str, relationship: str) -> None:
@@ -105,12 +108,16 @@ class PeopleDialog(QDialog):
 
     def _delete(self, person: Person, count: int) -> None:
         if count == 1:
-            stories = " Son récit et son enregistrement seront aussi effacés."
+            stories = _(" Son récit et son enregistrement seront aussi effacés.")
         elif count > 1:
-            stories = f" Ses {count} récits et leurs enregistrements seront aussi effacés."
+            stories = _(
+                " Ses {count} récits et leurs enregistrements seront aussi effacés."
+            ).format(count=count)
         else:
             stories = ""
-        if not self.confirm(f"Supprimer {person.display_name} ?{stories} Ce n'est pas réversible."):
+        question = _("Supprimer {name} ?").format(name=person.display_name)
+        irreversible = _("Ce n'est pas réversible.")
+        if not self.confirm(f"{question}{stories} {irreversible}"):
             return
         self._service.delete(person.id)
         if self._editing == person.id:

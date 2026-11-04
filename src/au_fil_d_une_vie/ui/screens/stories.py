@@ -6,6 +6,7 @@ from PySide6.QtCore import QPointF, Qt, QTimer, Signal
 from PySide6.QtGui import QFont, QPainter, QPainterPath, QPaintEvent, QPen
 from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.models import StoryStatus
 from au_fil_d_une_vie.services.stories import StoryCard, StoryService
 from au_fil_d_une_vie.ui import theme
@@ -29,8 +30,8 @@ MAX_TAGS = 3
 
 def status_text(card: StoryCard) -> str:
     if card.status is StoryStatus.TRANSCRIBING:
-        return "Le texte de ce récit est en préparation…"
-    return "Le texte de ce récit n'est pas encore prêt."
+        return _("Le texte de ce récit est en préparation…")
+    return _("Le texte de ce récit n'est pas encore prêt.")
 
 
 class StoryEntry(ClickableFrame):
@@ -63,7 +64,7 @@ class StoryEntry(ClickableFrame):
             else links
         )
         parts = [card.person_name, short_date(card.recorded_at), duration(card.duration_s)]
-        hidden = " · masqué" if dim else ""
+        hidden = _(" · masqué") if dim else ""
         meta = QLabel(" · ".join(escape(p) for p in parts) + " · " + links_html + hidden)
         meta.setTextFormat(Qt.TextFormat.RichText)
         meta.setFont(theme.font(theme.SANS, 15))
@@ -149,11 +150,11 @@ class StoriesScreen(QWidget):
 
         main = QVBoxLayout()
         main.setSpacing(8)
-        main.addWidget(eyebrow("Récits recueillis"))
-        main.addWidget(label("Mes récits", theme.SCRIPT, 104, color=theme.INK_SOFT))
+        main.addWidget(eyebrow(_("Récits recueillis")))
+        main.addWidget(label(_("Mes récits"), theme.SCRIPT, 104, color=theme.INK_SOFT))
         main.addWidget(
             label(
-                "Du plus récent au plus ancien, tout ce que ta famille t'a raconté.",
+                _("Du plus récent au plus ancien, tout ce que ta famille t'a raconté."),
                 theme.SERIF,
                 18,
                 color=theme.MUTED,
@@ -164,7 +165,7 @@ class StoriesScreen(QWidget):
 
         tools = QHBoxLayout()
         tools.setSpacing(24)
-        self._search = SearchField("Un mot, une personne, un lieu")
+        self._search = SearchField(_("Un mot, une personne, un lieu"))
         self._search.setMinimumWidth(300)
         self._search.setMaximumWidth(340)
         self._search.textChanged.connect(lambda _text: self._search_timer.start())
@@ -187,7 +188,7 @@ class StoriesScreen(QWidget):
         aside = QVBoxLayout()
         aside.setContentsMargins(0, 16, 0, 0)
         aside.setSpacing(32)
-        new = PrimaryButton("Nouvelle interview", icon="mic")
+        new = PrimaryButton(_("Nouvelle interview"), icon="mic")
         new.setMinimumWidth(380)
         new.clicked.connect(self.new_interview)
         aside.addWidget(new)
@@ -215,9 +216,9 @@ class StoriesScreen(QWidget):
             self._tabs.removeButton(button)
         clear_layout(self._tabs_box)
         themes = self._service.themes_with_stories()
-        if self._theme_id not in {tid for tid, _ in themes}:
+        if self._theme_id not in {tid for tid, _label in themes}:
             self._theme_id = None
-        for theme_id, text in [(-1, "Tous"), *themes]:
+        for theme_id, text in [(-1, _("Tous")), *themes]:
             tab = UnderlineTab(text)
             self._tabs.addButton(tab, theme_id)
             self._tabs_box.addWidget(tab)
@@ -238,8 +239,8 @@ class StoriesScreen(QWidget):
         self._thread.setVisible(bool(entries))
         if not entries:
             self._empty.setText(
-                "Aucun récit ne correspond à ta recherche."
+                _("Aucun récit ne correspond à ta recherche.")
                 if self._search.text().strip() or self._theme_id is not None
-                else "Pas encore de récit. Lance ta première interview : il apparaîtra ici."
+                else _("Pas encore de récit. Lance ta première interview : il apparaîtra ici.")
             )
         self._empty.setVisible(not entries)

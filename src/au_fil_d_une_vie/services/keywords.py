@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.models import StoryKeyword
 from au_fil_d_une_vie.repositories import (
     KeywordCandidate,
@@ -126,5 +127,5 @@ class KeywordService:
         """Ajoute un mot tapé par l'utilisateur (validé d'office)."""
         clean = " ".join(label.split())
         if not clean:
-            raise ValueError("Le mot-clé est vide.")
+            raise ValueError(_("Le mot-clé est vide."))
         self._keywords.add_validated(story_id, lemma_of(clean, self._analyzer), clean)

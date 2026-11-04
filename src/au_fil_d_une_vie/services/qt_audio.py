@@ -3,6 +3,7 @@
 from PySide6.QtCore import QIODevice
 from PySide6.QtMultimedia import QAudioDevice, QAudioFormat, QAudioSource, QMediaDevices, QtAudio
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.services.pcm import PcmConverter, SampleFormat
 from au_fil_d_une_vie.services.recording import (
     CHANNELS,
@@ -18,7 +19,7 @@ _FORMATS = {
     QAudioFormat.SampleFormat.Float: SampleFormat.FLOAT,
 }
 
-MIC_HELP = (
+MIC_HELP = (  # traduit à l'usage, avec _(MIC_HELP)
     "Vérifie qu'un micro est branché et que l'application a le droit de l'utiliser "
     "(sur Mac : Réglages Système, Confidentialité et sécurité, Micro)."
 )
@@ -42,20 +43,20 @@ class QtAudioInput:
 
     def start(self, on_chunk: ChunkCallback) -> None:
         if self._device.isNull():
-            raise RecordingError("Aucun micro n'a été trouvé. " + MIC_HELP)
+            raise RecordingError(_("Aucun micro n'a été trouvé. ") + _(MIC_HELP))
         fmt = _wanted_format()
         if not self._device.isFormatSupported(fmt):
             fmt = self._device.preferredFormat()
         sample_format = _FORMATS.get(fmt.sampleFormat())
         if sample_format is None:
-            raise RecordingError("Le format du micro n'est pas pris en charge.")
+            raise RecordingError(_("Le format du micro n'est pas pris en charge."))
         converter = PcmConverter(sample_format, fmt.channelCount(), fmt.sampleRate())
 
         self._source = QAudioSource(self._device, fmt)
         io = self._source.start()
         if io is None or self._source.error() != QtAudio.Error.NoError:
             self.stop()
-            raise RecordingError("Le micro n'a pas pu démarrer. " + MIC_HELP)
+            raise RecordingError(_("Le micro n'a pas pu démarrer. ") + _(MIC_HELP))
         self._io = io
 
         def read() -> None:

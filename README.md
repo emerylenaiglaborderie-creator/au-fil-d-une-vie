@@ -32,6 +32,8 @@ Projet de BTS SIO option SLAM.
 | Graphe des liens (récits et mots communs, networkx) | fait |
 | Premier lancement (prénom, accord parental sous 15 ans) et gestion des proches | fait |
 | Paramètres : prénom, thème Jour / Nuit / comme l'ordinateur ; icône de l'application | fait |
+| Pistes personnalisables : créer, renommer, réordonner, supprimer pistes et questions | fait |
+| Interface en français et en anglais (transcription, mots-clés et pistes compris) | fait |
 | Livre de famille en PDF (sommaire, Voir aussi, index des mots) : [exemple](docs/captures/livre-exemple.pdf) | fait |
 
 ## Stack technique
@@ -43,7 +45,8 @@ Projet de BTS SIO option SLAM.
 | Polices | Sacramento, Jost, Lora (licence OFL, embarquées) | Écriture manuscrite, interface, texte des récits |
 | Audio | **QtMultimedia** (`QAudioSource`, `QMediaPlayer`) + module `wave` | Enregistrement WAV 16 kHz mono, lecture des récits |
 | Transcription | **faster-whisper** (CTranslate2, processeur, int8), modèle `small` ou `base` | Texte des récits, calculé sur l'ordinateur |
-| Analyse du français | **spaCy** `fr_core_news_md` | Lemmes, noms, entités (personnes, lieux) |
+| Analyse de la langue | **spaCy** `fr_core_news_md`, `en_core_web_sm` | Lemmes, noms, entités (personnes, lieux) |
+| Traduction | module `i18n` maison (principe de gettext) | Interface en français et en anglais, catalogue vérifié par les tests |
 | Mots-clés | **TF-IDF** écrit en Python | Proposition des mots les plus caractéristiques, validés par l'utilisateur |
 | Liens | Mots partagés pondérés par leur **rareté** (IDF) | Force du lien entre deux récits, « Voir aussi » |
 | Graphe | **networkx** (`spring_layout`, composantes connexes) | Placement des récits et des mots communs |

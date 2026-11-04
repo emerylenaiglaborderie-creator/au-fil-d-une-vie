@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.models import StoryStatus
 from au_fil_d_une_vie.services.stories import StoryDetail, StoryService, Tag, keyword_spans
 from au_fil_d_une_vie.ui import theme
@@ -122,7 +123,7 @@ class StoryScreen(QWidget):
         root.setContentsMargins(48, 20, 48, 28)
         root.setSpacing(24)
 
-        back = QPushButton("←  Récits")
+        back = QPushButton(_("←  Récits"))
         back.setObjectName("mutedLink")
         back.setStyleSheet("text-decoration: none; padding: 0;")
         back.setMinimumHeight(44)
@@ -163,15 +164,15 @@ class StoryScreen(QWidget):
         column.setSpacing(14)
         bar = QHBoxLayout()
         self._tabs = QButtonGroup(self)
-        self._tab_book = UnderlineTab("Version livre")
-        self._tab_raw = UnderlineTab("Transcription brute")
+        self._tab_book = UnderlineTab(_("Version livre"))
+        self._tab_raw = UnderlineTab(_("Transcription brute"))
         self._tab_book.setChecked(True)
         for index, tab in enumerate((self._tab_book, self._tab_raw)):
             self._tabs.addButton(tab, index)
             bar.addWidget(tab)
         self._tabs.idClicked.connect(self._switch_tab)
         bar.addStretch(1)
-        self._correct = link_button("Corriger le texte")
+        self._correct = link_button(_("Corriger le texte"))
         self._correct.clicked.connect(self._start_editing)
         bar.addWidget(self._correct)
         column.addLayout(bar)
@@ -202,17 +203,17 @@ class StoryScreen(QWidget):
         self._editor.setObjectName("editor")
         self._editor.setFont(theme.font(theme.SERIF, 19))
         self._editor.setMinimumHeight(360)
-        self._editor.setAccessibleName("Texte du récit à corriger")
+        self._editor.setAccessibleName(_("Texte du récit à corriger"))
         box.addWidget(self._edit_hint)
         box.addWidget(self._editor)
         self._edit_actions = QWidget()
         actions = QHBoxLayout(self._edit_actions)
         actions.setContentsMargins(0, 8, 0, 0)
         actions.setSpacing(24)
-        save = PrimaryButton("Enregistrer la correction")
+        save = PrimaryButton(_("Enregistrer la correction"))
         save.clicked.connect(self._save_text)
         actions.addWidget(save)
-        cancel = link_button("Annuler")
+        cancel = link_button(_("Annuler"))
         cancel.clicked.connect(self._stop_editing)
         actions.addWidget(cancel)
         actions.addStretch(1)
@@ -225,11 +226,11 @@ class StoryScreen(QWidget):
     def _build_aside(self) -> None:
         words = QVBoxLayout()
         words.setSpacing(12)
-        words.addWidget(section_title("Mots-clés"))
+        words.addWidget(section_title(_("Mots-clés")))
         self._tags_box = QWidget()
         self._tags = FlowLayout(self._tags_box)
         words.addWidget(self._tags_box)
-        self._new_word = SearchField("Un mot à ajouter")
+        self._new_word = SearchField(_("Un mot à ajouter"))
         self._new_word.setFont(theme.font(theme.SANS, 15))
         self._new_word.setClearButtonEnabled(False)
         self._new_word.returnPressed.connect(self._add_word)
@@ -237,7 +238,7 @@ class StoryScreen(QWidget):
         words.addWidget(self._new_word)
         words.addWidget(
             label(
-                "Une feuille pleine est un mot qu'on retrouve dans un autre récit.",
+                _("Une feuille pleine est un mot qu'on retrouve dans un autre récit."),
                 theme.SERIF,
                 14,
                 color=theme.MUTED,
@@ -245,13 +246,13 @@ class StoryScreen(QWidget):
                 wrap=True,
             )
         )
-        self._suggest_title = eyebrow("Mots proposés", color=theme.MUTED, spacing_em=0.14)
+        self._suggest_title = eyebrow(_("Mots proposés"), color=theme.MUTED, spacing_em=0.14)
         words.addWidget(self._suggest_title)
         self._suggest_box = QWidget()
         self._suggest = FlowLayout(self._suggest_box)
         words.addWidget(self._suggest_box)
         self._suggest_hint = label(
-            "Clique sur un mot pour le garder, sur × pour l'écarter.",
+            _("Clique sur un mot pour le garder, sur × pour l'écarter."),
             px=13,
             color=theme.MUTED,
             wrap=True,
@@ -261,12 +262,12 @@ class StoryScreen(QWidget):
 
         related = QVBoxLayout()
         related.setSpacing(10)
-        related.addWidget(section_title("Voir aussi"))
+        related.addWidget(section_title(_("Voir aussi")))
         self._related = RelatedThread()
         self._related.opened.connect(self.story_opened)
         related.addWidget(self._related)
         self._no_related = label(
-            "Pas encore de lien avec un autre récit.",
+            _("Pas encore de lien avec un autre récit."),
             theme.SERIF,
             16,
             color=theme.MUTED,
@@ -277,34 +278,34 @@ class StoryScreen(QWidget):
 
         notebook = QVBoxLayout()
         notebook.setSpacing(10)
-        notebook.addWidget(section_title("Mon carnet"))
+        notebook.addWidget(section_title(_("Mon carnet")))
         notebook.addWidget(
-            label("Ce que j'en retiens", theme.SERIF, 17, color=theme.MUTED, italic=True)
+            label(_("Ce que j'en retiens"), theme.SERIF, 17, color=theme.MUTED, italic=True)
         )
         self._note = QPlainTextEdit()
         self._note.setObjectName("notebook")
         self._note.setFont(theme.font(theme.SERIF, 17))
         self._note.setPlaceholderText(
-            "Une phrase, un détail, une question pour la prochaine fois..."
+            _("Une phrase, un détail, une question pour la prochaine fois...")
         )
         self._note.setFixedHeight(130)
-        self._note.setAccessibleName("Ce que j'en retiens")
+        self._note.setAccessibleName(_("Ce que j'en retiens"))
         self._note.textChanged.connect(self._note_timer.start)
         notebook.addWidget(self._note)
         self._note_status = label("", px=13, color=theme.MUTED)
         notebook.addWidget(self._note_status)
         self._aside.addLayout(notebook)
 
-        self._book = outline_button("Ajouter au livre de famille", large=True)
+        self._book = outline_button(_("Ajouter au livre de famille"), large=True)
         self._book.clicked.connect(self._toggle_book)
         self._aside.addWidget(self._book)
 
         privacy = QHBoxLayout()
         privacy.setSpacing(20)
-        self._hide = link_button("Masquer ce récit")
+        self._hide = link_button(_("Masquer ce récit"))
         self._hide.clicked.connect(self._toggle_hidden)
         privacy.addWidget(self._hide)
-        delete = link_button("Supprimer")
+        delete = link_button(_("Supprimer"))
         delete.setStyleSheet(f"color: {theme.RED_TEXT};")
         delete.clicked.connect(self._delete)
         privacy.addWidget(delete)
@@ -356,16 +357,16 @@ class StoryScreen(QWidget):
         card = detail.card
         parts = (card.theme_label, short_date(card.recorded_at), duration(card.duration_s))
         self._eyebrow.setText(" · ".join(parts).upper())
-        self._teller.setText(f"{card.person_name} raconte")
+        self._teller.setText(_("{name} raconte").format(name=card.person_name))
         self._question.setText(card.question)
-        self._hide.setText("Ne plus masquer" if card.is_hidden else "Masquer ce récit")
+        self._hide.setText(_("Ne plus masquer") if card.is_hidden else _("Masquer ce récit"))
         ready = card.status is StoryStatus.TRANSCRIBED and not card.is_hidden
         self._book.setEnabled(ready)
         self._book.setText(
-            "Retirer du livre de famille" if card.in_book else "Ajouter au livre de famille"
+            _("Retirer du livre de famille") if card.in_book else _("Ajouter au livre de famille")
         )
         self._book.setToolTip(
-            "" if ready else "Un récit entre dans le livre quand son texte est prêt et visible."
+            "" if ready else _("Un récit entre dans le livre quand son texte est prêt et visible.")
         )
         self._render_text()
         self._render_tags()
@@ -386,7 +387,7 @@ class StoryScreen(QWidget):
         self._tab_raw.setEnabled(has_text and not self._editing)
         self._tab_book.setEnabled(not self._editing)
         self._correct.setText(
-            "Corriger la transcription" if self._show_raw else "Corriger le texte"
+            _("Corriger la transcription") if self._show_raw else _("Corriger le texte")
         )
         self._correct.setVisible(has_text and not self._editing)
         self._editor.setVisible(self._editing)
@@ -400,10 +401,12 @@ class StoryScreen(QWidget):
             self._text.setText(
                 f'<p style="color:{theme.MUTED}"><i>'
                 + (
-                    "Le texte de ce récit est en préparation, sur cet ordinateur…"
+                    _("Le texte de ce récit est en préparation, sur cet ordinateur…")
                     if waiting
-                    else "Le texte de ce récit n'est pas encore prêt. Il sera préparé dès que "
-                    "le modèle de transcription sera installé."
+                    else _(
+                        "Le texte de ce récit n'est pas encore prêt. Il sera préparé dès que "
+                        "le modèle de transcription sera installé."
+                    )
                 )
                 + "</i></p>"
             )
@@ -420,14 +423,14 @@ class StoryScreen(QWidget):
             chip = LeafChip(tag.label, "filled" if tag.shared else "outline", closable=True)
             chip.closed.connect(lambda keyword_id=tag.keyword_id: self._remove_word(keyword_id))
             self._tags.addWidget(chip)
-        add = LeafChip("+ ajouter", "add", clickable=True)
+        add = LeafChip(_("+ ajouter"), "add", clickable=True)
         add.clicked.connect(self._show_new_word)
         self._tags.addWidget(add)
 
         clear_layout(self._suggest)
         for tag in detail.suggestions:
             chip = LeafChip(tag.label, "proposed", closable=True, clickable=True)
-            chip.setToolTip("Garder ce mot")
+            chip.setToolTip(_("Garder ce mot"))
             chip.clicked.connect(lambda keyword_id=tag.keyword_id: self._keep_word(keyword_id))
             chip.closed.connect(lambda keyword_id=tag.keyword_id: self._remove_word(keyword_id))
             self._suggest.addWidget(chip)
@@ -452,10 +455,12 @@ class StoryScreen(QWidget):
         if self._editing_raw:
             self._editor.setPlainText(self._detail.raw_text)
             self._edit_hint.setText(
-                "Corrige ce qui a été mal compris : un mot mal entendu, un nom mal écrit. "
-                "Tu peux réécouter le passage avec le lecteur au-dessus."
+                _(
+                    "Corrige ce qui a été mal compris : un mot mal entendu, un nom mal écrit. "
+                    "Tu peux réécouter le passage avec le lecteur au-dessus."
+                )
                 + (
-                    " La version livre, déjà corrigée, ne change pas."
+                    _(" La version livre, déjà corrigée, ne change pas.")
                     if self._detail.book_text is not None
                     else ""
                 )
@@ -463,8 +468,10 @@ class StoryScreen(QWidget):
         else:
             self._editor.setPlainText(self._detail.text or "")
             self._edit_hint.setText(
-                "Version pour le livre de famille : tu peux aussi reformuler. "
-                "La transcription brute est gardée à côté."
+                _(
+                    "Version pour le livre de famille : tu peux aussi reformuler. "
+                    "La transcription brute est gardée à côté."
+                )
             )
         self._render_text()
         self._editor.setFocus()
@@ -478,7 +485,7 @@ class StoryScreen(QWidget):
             return
         text = self._editor.toPlainText()
         if not text.strip():
-            self._edit_hint.setText("Le texte ne peut pas être vide.")
+            self._edit_hint.setText(_("Le texte ne peut pas être vide."))
             return
         if self._editing_raw:
             self._service.save_raw_text(self._detail.card.id, text)
@@ -520,7 +527,7 @@ class StoryScreen(QWidget):
     def _save_note(self) -> None:
         if self._detail is not None:
             self._service.save_note(self._detail.card.id, self._note.toPlainText())
-            self._note_status.setText("Gardé dans ton carnet.")
+            self._note_status.setText(_("Gardé dans ton carnet."))
 
     def _flush_note(self) -> None:
         if self._note_timer.isActive():
@@ -547,8 +554,10 @@ class StoryScreen(QWidget):
         if self._detail is None:
             return
         if not self.confirm(
-            "Supprimer ce récit ? L'enregistrement, son texte, ses mots-clés et ta note "
-            "seront effacés de cet ordinateur. Ce n'est pas réversible."
+            _(
+                "Supprimer ce récit ? L'enregistrement, son texte, ses mots-clés et ta note "
+                "seront effacés de cet ordinateur. Ce n'est pas réversible."
+            )
         ):
             return
         self._player.stop()

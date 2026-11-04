@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QWidgetItem,
 )
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.widgets import ClickableFrame
 
@@ -124,8 +125,8 @@ class LeafChip(ClickableFrame):
             close.setObjectName("chipClose")
             close.setText("×")
             close.setCursor(Qt.CursorShape.PointingHandCursor)
-            close.setAccessibleName(f"Retirer {text}")
-            close.setToolTip("Retirer ce mot")
+            close.setAccessibleName(_("Retirer {word}").format(word=text))
+            close.setToolTip(_("Retirer ce mot"))
             close.clicked.connect(self.closed)
             row.addWidget(close)
 

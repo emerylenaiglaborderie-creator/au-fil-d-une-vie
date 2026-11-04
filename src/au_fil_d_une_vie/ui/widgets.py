@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.ui import theme
 
 
@@ -83,7 +84,7 @@ class DotRow(QWidget):
         self._diameter = diameter
         self._gap = gap
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.setAccessibleName(f"{done} sur {total}")
+        self.setAccessibleName(_("{done} sur {total}").format(done=done, total=total))
 
     def sizeHint(self) -> QSize:
         n = max(self._total, 1)
@@ -439,7 +440,7 @@ class ThreadWave(QWidget):
         self.setMinimumHeight(96)
         self.setMaximumWidth(560)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.setAccessibleName("Onde sonore de l'enregistrement, tracée comme un fil")
+        self.setAccessibleName(_("Onde sonore de l'enregistrement, tracée comme un fil"))
 
     def push(self, level: float) -> None:
         """Niveau reçu du micro (gardé au maximum jusqu'au prochain `commit`)."""

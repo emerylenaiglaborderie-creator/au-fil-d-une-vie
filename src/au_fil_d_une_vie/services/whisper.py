@@ -86,10 +86,11 @@ class FasterWhisperTranscriber:
         audio_path: Path,
         on_progress: ProgressCallback | None = None,
         hotwords: str | None = None,
+        language: str = LANGUAGE,
     ) -> TranscriptionResult:
         segments, info = self._load().transcribe(
             read_wav(audio_path),
-            language=LANGUAGE,
+            language=language,
             beam_size=5,
             vad_filter=True,
             # Plus fiable qu'un prompt pour les noms propres (« Le Gall » plutôt que « Legalle »).
@@ -104,5 +105,5 @@ class FasterWhisperTranscriber:
         if on_progress is not None:
             on_progress(1.0)
         return TranscriptionResult(
-            text=" ".join(p for p in parts if p), language=LANGUAGE, duration_s=duration
+            text=" ".join(p for p in parts if p), language=language, duration_s=duration
         )

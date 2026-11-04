@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QPushButton, QWidget
 from pytestqt.qtbot import QtBot
 
 from au_fil_d_une_vie.bootstrap import Services, open_services
@@ -13,16 +13,18 @@ from au_fil_d_une_vie.services.fake_audio import FakeAudioInput, tone
 from au_fil_d_une_vie.services.recording import RecordingState
 from au_fil_d_une_vie.ui.app import create_application
 from au_fil_d_une_vie.ui.main_window import MainWindow
-from au_fil_d_une_vie.ui.widgets import LeafToggle, PrimaryButton
+from au_fil_d_une_vie.ui.widgets import ClickableFrame, LeafToggle, PrimaryButton
 
 
 @pytest.fixture(autouse=True)
 def theme_jour() -> Iterator[None]:
-    """Chaque test d'interface repart du thème Jour, même si un test a choisi Nuit."""
+    """Chaque test repart du thème Jour et du français, même si un test les a changés."""
+    from au_fil_d_une_vie import i18n
     from au_fil_d_une_vie.ui import theme
 
     yield
     theme.apply(False)
+    i18n.set_language("fr")
 
 
 @pytest.fixture
@@ -566,3 +568,155 @@ def test_choisir_le_theme_nuit_reconstruit_la_fenetre(
     assert controleur.window.current_screen() == MainWindow.SETTINGS
     assert theme.DARK_MODE
     qtbot.addWidget(controleur.window)
+
+
+# Pistes personnalisables
+
+
+def test_creer_une_piste_et_une_question(
+    qtbot: QtBot, window: MainWindow, services: Services
+) -> None:
+    dialogue = window.open_tracks()
+    qtbot.addWidget(dialogue)
+    dialogue._new_theme.setText("Voyages")
+    dialogue._add_theme()
+    assert dialogue._theme_name.text() == "Voyages"
+    dialogue._question.setText("Quel a été ton plus beau voyage ?")
+    dialogue._submit_question()
+    voyages = next(t for t in services.tracks.all() if t.theme.label == "Voyages")
+    assert [q.question.text for q in voyages.questions] == ["Quel a été ton plus beau voyage ?"]
+    dialogue.accept()
+    tuiles = [
+        t.accessibleName()
+        for t in window.quest.findChildren(ClickableFrame)
+        if t.objectName() == "tile"
+    ]
+    assert any(nom.startswith("Voyages") for nom in tuiles)
+
+
+def test_une_piste_avec_des_recits_reste(
+    qtbot: QtBot, window: MainWindow, services: Services
+) -> None:
+    dialogue = window.open_tracks()
+    qtbot.addWidget(dialogue)
+    dialogue.confirm = lambda question: True  # type: ignore[method-assign]
+    enfance = next(t for t in services.tracks.all() if t.theme.label == "Enfance")
+    dialogue._select(enfance.theme.id)
+    dialogue._remove_theme()
+    assert "Enfance" in [t.theme.label for t in services.tracks.all()]
+    assert "récits" in dialogue._error.text()
+
+
+def test_renommer_une_piste(qtbot: QtBot, window: MainWindow, services: Services) -> None:
+    dialogue = window.open_tracks()
+    qtbot.addWidget(dialogue)
+    cuisine = next(t for t in services.tracks.all() if t.theme.label == "Cuisine")
+    dialogue._select(cuisine.theme.id)
+    dialogue._theme_name.setText("Cuisine et repas")
+    dialogue._rename_theme()
+    assert "Cuisine et repas" in [t.theme.label for t in services.tracks.all()]
+
+
+# Langue
+
+
+def test_passer_l_interface_en_anglais(qtbot: QtBot, services: Services) -> None:
+    from au_fil_d_une_vie.ui.app import Controller, create_application
+
+    controleur = Controller(create_application([]), services)
+    qtbot.addWidget(controleur.window)
+    controleur.window.show_screen(MainWindow.SETTINGS)
+    controleur.window.settings._languages.button(1).click()  # English
+
+    fenetre = controleur.window
+    qtbot.addWidget(fenetre)
+    assert services.settings.load().language == "en"
+    fenetre.show_screen(MainWindow.QUEST)
+    assert fenetre.quest._hello.text() == "Hello Camille"
+    liens = [b.text() for b in fenetre._nav.buttons()]
+    assert liens == ["My quest", "Interview", "Stories", "Graph"]
+
+
+def test_une_premiere_quete_en_anglais_recoit_les_pistes_en_anglais(
+    qtbot: QtBot, tmp_path: Path, micro: FakeAudioInput
+) -> None:
+    from au_fil_d_une_vie import i18n
+    from au_fil_d_une_vie.bootstrap import build_services
+    from au_fil_d_une_vie.repositories import connect
+
+    create_application([])
+    i18n.set_language("en")
+    db = tmp_path / "base.db"
+    services = build_services(
+        connect(db), db, tmp_path / "audio", lambda: micro, tmp_path / "m", tmp_path / "s.json"
+    )
+    fenetre = MainWindow(services)
+    qtbot.addWidget(fenetre)
+    accueil = fenetre.welcome
+    accueil._name.setText("Sam")
+    accueil._age.button(accueil.OLDER).click()
+    accueil._finish()
+    pistes = [t.theme.label for t in services.tracks.all()]
+    assert pistes[:2] == ["Childhood", "Encounters"]
+    assert fenetre.quest._hello.text() == "Hello Sam"
+
+
+def _textes_affiches(racine: QWidget) -> list[str]:
+    from PySide6.QtWidgets import QAbstractButton, QLabel, QLineEdit, QPlainTextEdit
+
+    textes: list[str] = []
+    for widget in racine.findChildren(QWidget):
+        if isinstance(widget, (QLabel, QAbstractButton)):
+            textes.append(widget.text())
+        if isinstance(widget, (QLineEdit, QPlainTextEdit)):
+            textes.append(widget.placeholderText())
+        textes += [widget.toolTip(), widget.accessibleName()]
+    return [t for t in textes if t]
+
+
+def test_aucun_francais_ne_reste_en_anglais(
+    qtbot: QtBot, tmp_path: Path, micro: FakeAudioInput
+) -> None:
+    """Filet de sécurité : une phrase oubliée (sans _()) resterait en français à l'écran."""
+    import re
+
+    from au_fil_d_une_vie import i18n
+    from au_fil_d_une_vie.bootstrap import build_services
+    from au_fil_d_une_vie.repositories import connect
+
+    create_application([])
+    i18n.set_language("en")
+    db = tmp_path / "base.db"
+    services = build_services(
+        connect(db), db, tmp_path / "audio", lambda: micro, tmp_path / "m", tmp_path / "s.json"
+    )
+    fenetre = MainWindow(services)
+    qtbot.addWidget(fenetre)
+    vus = _textes_affiches(fenetre)  # écran d'accueil
+    fenetre.welcome._name.setText("Sam")
+    fenetre.welcome._age.button(fenetre.welcome.OLDER).click()
+    services.people.add("Grandma Jane", "grandmother")
+    fenetre.welcome._finish()
+    for ecran in (
+        MainWindow.QUEST,
+        MainWindow.INTERVIEW,
+        MainWindow.STORIES,
+        MainWindow.GRAPH,
+        MainWindow.SETTINGS,
+    ):
+        fenetre.show_screen(ecran)
+        vus += _textes_affiches(fenetre)
+    for ouvrir in (fenetre.open_people, fenetre.open_tracks, fenetre.open_book):
+        dialogue = ouvrir()
+        qtbot.addWidget(dialogue)
+        vus += _textes_affiches(dialogue)
+        dialogue.close()
+
+    marques = re.compile(
+        r"[éèàùâêîôûçœ]|\b(le|la|les|une|des|du|ta|tes|ton|est|pas|pour|dans)\b", re.I
+    )
+    autorises = {"Au fil d'une vie", "Français"}
+    restes = sorted(
+        {t for t in vus if t not in autorises and marques.search(t.replace("Au fil d'une vie", ""))}
+    )
+    assert restes == [], "Texte resté en français :\n" + "\n".join(restes)

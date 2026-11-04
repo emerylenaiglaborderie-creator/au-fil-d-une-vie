@@ -58,7 +58,7 @@ class GraphView:
         if not self.stories:
             return None
         counts = {s.id: 0 for s in self.stories}
-        for story_id, _ in self.word_edges:
+        for story_id, _keyword in self.word_edges:
             counts[story_id] += 1
         return max(self.stories, key=lambda s: (counts[s.id], -s.id)).id
 
