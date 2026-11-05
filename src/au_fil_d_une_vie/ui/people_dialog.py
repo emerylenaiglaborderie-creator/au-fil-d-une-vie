@@ -1,7 +1,15 @@
 """Fenêtre « Mes proches » : ajouter, renommer ou supprimer les personnes interrogées."""
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QHBoxLayout, QMessageBox, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QMessageBox,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.models import Person
@@ -13,6 +21,8 @@ from au_fil_d_une_vie.ui.widgets import clear_layout, label, link_button, sectio
 
 
 class PeopleDialog(QDialog):
+    VISIBLE_ROWS = 5
+
     def __init__(self, service: PeopleService, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._service = service
@@ -27,9 +37,19 @@ class PeopleDialog(QDialog):
         box.setSpacing(12)
         box.addWidget(label(_("Mes proches"), theme.SCRIPT, 56, color=theme.RED_TEXT))
         box.addWidget(section_title(_("Les personnes à interroger")))
-        self._rows = QVBoxLayout()
+        # La liste défile au-delà de quelques proches : la fenêtre garde sa taille.
+        rows_box = QWidget()
+        rows_box.setObjectName("page")
+        self._rows = QVBoxLayout(rows_box)
+        self._rows.setContentsMargins(0, 0, 0, 0)
         self._rows.setSpacing(0)
-        box.addLayout(self._rows)
+        self._list = QScrollArea()
+        self._list.setWidgetResizable(True)
+        self._list.setFrameShape(QFrame.Shape.NoFrame)
+        self._list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._list.setStyleSheet(f"QScrollArea, QWidget#page {{ background: {theme.CREAM}; }}")
+        self._list.setWidget(rows_box)
+        box.addWidget(self._list)
         box.addSpacing(12)
         self._form_title = label(_("Ajouter un proche"), theme.SERIF, 17)
         box.addWidget(self._form_title)
@@ -55,6 +75,10 @@ class PeopleDialog(QDialog):
             )
         for person, count in people:
             self._rows.addWidget(self._row(person, count))
+        self._rows.addStretch(1)
+        # Hauteur ajustée au contenu, jusqu'à cinq lignes ; au-delà, la liste défile.
+        row_height = 60
+        self._list.setFixedHeight(max(1, min(len(people), self.VISIBLE_ROWS)) * row_height + 4)
 
     def _row(self, person: Person, count: int) -> QWidget:
         row = QWidget()

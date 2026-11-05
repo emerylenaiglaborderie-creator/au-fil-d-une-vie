@@ -166,6 +166,57 @@ def test_les_racines_partent_du_milieu_du_tronc() -> None:
     assert abs((gauche + droite) / 2 - TRUNK.x()) < 2
 
 
+# Beaucoup de proches (au-delà de huit, l'interface débordait)
+
+NOUVEAUX_PROCHES = [
+    "Cousine Léa",
+    "Oncle Bernard",
+    "Grand-père Jo",
+    "Marraine Sophie",
+    "Parrain Luc",
+    "Arrière-grand-mère Rose",
+    "Tante Odile",
+    "Cousin Hugo",
+]
+
+
+@pytest.fixture
+def grande_famille(window: MainWindow, services: Services) -> MainWindow:
+    for nom in NOUVEAUX_PROCHES:
+        services.people.add(nom, "famille")
+    window._after_people()
+    return window
+
+
+def test_les_pistes_ne_debordent_pas_avec_beaucoup_de_proches(grande_famille: MainWindow) -> None:
+    grande_famille.show_screen(MainWindow.QUEST)
+    assert len(grande_famille.quest._people.buttons()) == 12
+    assert grande_famille.quest.minimumSizeHint().width() <= grande_famille.width()
+
+
+def test_la_liste_des_proches_defile_au_lieu_de_grandir(
+    qtbot: QtBot, grande_famille: MainWindow
+) -> None:
+    dialogue = grande_famille.open_people()
+    qtbot.addWidget(dialogue)
+    assert dialogue.sizeHint().height() < grande_famille.minimumHeight()
+    assert dialogue._list.verticalScrollBar().maximum() > 0
+    dialogue.reject()
+
+
+def test_l_arbre_montre_six_racines_et_un_lien_vers_les_autres(grande_famille: MainWindow) -> None:
+    arbre = grande_famille.tree
+    assert len(arbre.roots) == 6
+    assert arbre._roots_extra is not None
+    assert arbre._roots_extra.text() == "et 6 autres"
+
+
+def test_quitter_l_arbre_ne_donne_pas_le_focus_au_mini_arbre(window: MainWindow) -> None:
+    window._settings_button.setFocus()
+    window.show_screen(MainWindow.QUEST)
+    assert not window.mini_tree.hasFocus()
+
+
 def test_les_racines_portent_les_proches(window: MainWindow) -> None:
     assert {r.name() for r in window.tree.roots} == {
         "Mamie Yvonne",

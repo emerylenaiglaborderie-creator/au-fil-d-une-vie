@@ -579,13 +579,15 @@ class Root(QGraphicsObject):
 
 def root_ends(count: int) -> list[QPointF]:
     """Extrémités des racines, en éventail de part et d'autre du tronc."""
+    # Trois étages, de plus en plus écartés : les racines restent assez couchées
+    # pour que les noms écrits le long d'elles se lisent bien.
     slots = [
         QPointF(500, 664),
         QPointF(1200, 664),
-        QPointF(380, 748),
-        QPointF(1320, 748),
-        QPointF(620, 804),
-        QPointF(1090, 806),
+        QPointF(380, 732),
+        QPointF(1310, 732),
+        QPointF(250, 796),
+        QPointF(1336, 800),
     ]
     return slots[:count]
 
@@ -675,7 +677,7 @@ class TreeScreen(QWidget):
             self.tags[spec.section] = hanging.tag
         self._appearing: QParallelAnimationGroup | None = None
         self.roots: list[Root] = []
-        self._roots_extra: QGraphicsSimpleTextItem | None = None
+        self._roots_extra: _ClickableText | None = None
         self._add_person: _ClickableText | None = None
         self.refresh()
 
@@ -837,12 +839,13 @@ class TreeScreen(QWidget):
             self._scene.addItem(root)
             self.roots.append(root)
         if len(people) > MAX_ROOTS:
-            extra = QGraphicsSimpleTextItem(
-                _("et {count} autres").format(count=len(people) - MAX_ROOTS)
-            )
-            extra.setFont(theme.font(theme.SERIF, 15, italic=True))
-            extra.setBrush(QBrush(theme.color(theme.MUTED)))
-            extra.setPos(TRUNK.x() + 30, GROUND_Y + 200)
+            # Les autres proches ne tiennent pas sur l'arbre : un lien ouvre la liste complète.
+            extra = _ClickableText(_("et {count} autres").format(count=len(people) - MAX_ROOTS))
+            extra.setFont(theme.font(theme.SERIF, 16, italic=True))
+            extra.setBrush(QBrush(theme.color(theme.LEAF_TEXT)))
+            extra.setPos(TRUNK.x() - extra.boundingRect().width() / 2, SCENE.bottom() - 30)
+            extra.setToolTip(_("Voir tous les proches"))
+            extra.activated.connect(self.manage_people)
             self._scene.addItem(extra)
             self._roots_extra = extra
         if not people:

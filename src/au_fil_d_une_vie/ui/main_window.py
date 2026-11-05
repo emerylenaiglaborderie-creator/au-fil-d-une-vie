@@ -250,6 +250,10 @@ class MainWindow(QMainWindow):
 
     def _update_header(self, index: int) -> None:
         on_tree = index == self.TREE
+        # Un bouton de l'en-tête qui disparaît passerait le focus au suivant comme une
+        # tabulation (et le mini arbre afficherait son repère de focus clavier).
+        if self._header_tools.isAncestorOf(self.focusWidget()):
+            self._stack.setFocus(Qt.FocusReason.OtherFocusReason)
         self._section.set_text(self.section_name(index))
         self._section.setVisible(not on_tree)
         self.mini_tree.setVisible(not on_tree)

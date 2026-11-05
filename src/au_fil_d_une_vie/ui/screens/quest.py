@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.services.quest import QuestOverview, QuestService, Track
 from au_fil_d_une_vie.ui import theme
+from au_fil_d_une_vie.ui.leaves import FlowLayout
 from au_fil_d_une_vie.ui.text import plural
 from au_fil_d_une_vie.ui.widgets import (
     ClickableFrame,
@@ -166,15 +167,15 @@ class QuestScreen(QWidget):
         ask = QVBoxLayout()
         ask.setSpacing(10)
         ask.addWidget(eyebrow(_("À poser à"), color=theme.MUTED, spacing_em=0.14))
-        toggles = QHBoxLayout()
-        toggles.setSpacing(8)
+        # Les proches passent à la ligne : la carte ne déborde jamais, quel que soit leur nombre.
+        toggles_box = QWidget()
+        toggles = FlowLayout(toggles_box)
         for index, progress in enumerate(overview.people):
             toggle = LeafToggle(progress.person.display_name)
             toggle.setChecked(index == 0)
             self._people.addButton(toggle, progress.person.id)
             toggles.addWidget(toggle)
-        toggles.addStretch(1)
-        ask.addLayout(toggles)
+        ask.addWidget(toggles_box)
         if not overview.people:
             add = link_button(_("Ajoute d'abord un proche à interroger"))
             add.clicked.connect(self.manage_people)

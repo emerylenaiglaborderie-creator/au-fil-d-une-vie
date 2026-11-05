@@ -115,6 +115,7 @@ EN: dict[str, str] = {
     "le fruit de tes récits": "the fruit of your stories",
     "Voir les récits de {name}": "See {name}'s stories",
     "et {count} autres": "and {count} more",
+    "Voir tous les proches": "See all relatives",
     "Ajoute un proche pour faire pousser les racines": "Add a relative to grow the roots",
     "Famille {name}": "The {name} family",
     "Ton enquête avance. Voici la prochaine piste à suivre.": (
