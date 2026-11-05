@@ -25,12 +25,22 @@ class ProfileService:
     def get(self) -> Profile | None:
         return self._profile.get()
 
-    def save(self, first_name: str, under_15: bool, parental_consent: bool = False) -> Profile:
+    def save(
+        self,
+        first_name: str,
+        under_15: bool,
+        parental_consent: bool = False,
+        family_name: str = "",
+    ) -> Profile:
+        """Crée ou met à jour le profil. Le nom de famille est facultatif."""
         name = " ".join(first_name.split())
         if not name:
             raise ProfileError(_("Indique ton prénom."))
         if len(name) > MAX_NAME_LENGTH:
             raise ProfileError(_("Ce prénom est trop long."))
+        family = " ".join(family_name.split())
+        if len(family) > MAX_NAME_LENGTH:
+            raise ProfileError(_("Ce nom de famille est trop long."))
         if under_15 and not parental_consent:
             raise ProfileError(_("Sous 15 ans, l'accord d'un parent est nécessaire."))
         existing = self._profile.get()
@@ -41,13 +51,19 @@ class ProfileService:
                 if existing and existing.parental_consent_at
                 else datetime.now(UTC)
             )
-        return self._profile.save(name, under_15, consent_at)
+        return self._profile.save(name, under_15, consent_at, family or None)
 
-    def rename(self, first_name: str) -> Profile:
-        """Change le prénom, en gardant la tranche d'âge et l'accord parental."""
+    def rename(self, first_name: str, family_name: str | None = None) -> Profile:
+        """Change le prénom et, s'il est donné, le nom de famille (vide : retiré).
+
+        La tranche d'âge et l'accord parental sont conservés.
+        """
         existing = self._profile.get()
         if existing is None:
             raise ProfileError(_("Aucun profil à modifier."))
         return self.save(
-            first_name, existing.under_15, parental_consent=existing.parental_consent_at is not None
+            first_name,
+            existing.under_15,
+            parental_consent=existing.parental_consent_at is not None,
+            family_name=(existing.family_name or "") if family_name is None else family_name,
         )

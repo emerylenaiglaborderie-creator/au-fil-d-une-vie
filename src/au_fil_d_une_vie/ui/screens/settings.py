@@ -74,7 +74,9 @@ class SettingsScreen(QWidget):
 
     def _profile_card(self) -> QFrame:
         card, box = self._card(_("Mon profil"))
-        box.addWidget(eyebrow(_("Ton prénom"), color=theme.MUTED, spacing_em=0.14))
+        box.addWidget(
+            eyebrow(_("Ton prénom et ton nom de famille"), color=theme.MUTED, spacing_em=0.14)
+        )
         row = QHBoxLayout()
         row.setSpacing(16)
         self._name = SearchField(_("Ton prénom"))
@@ -82,6 +84,11 @@ class SettingsScreen(QWidget):
         self._name.setFont(theme.font(theme.SERIF, 20, italic=True))
         self._name.returnPressed.connect(self._save_name)
         row.addWidget(self._name, 1)
+        self._family = SearchField(_("Nom de famille (facultatif)"))
+        self._family.setClearButtonEnabled(False)
+        self._family.setFont(theme.font(theme.SERIF, 20, italic=True))
+        self._family.returnPressed.connect(self._save_name)
+        row.addWidget(self._family, 1)
         save = outline_button(_("Enregistrer"))
         save.clicked.connect(self._save_name)
         row.addWidget(save)
@@ -194,6 +201,7 @@ class SettingsScreen(QWidget):
     def refresh(self) -> None:
         profile = self._services.profile.get()
         self._name.setText(profile.first_name if profile else "")
+        self._family.setText((profile.family_name or "") if profile else "")
         self._name_status.setText("")
         if profile is not None:
             self._age.setText(
@@ -237,7 +245,7 @@ class SettingsScreen(QWidget):
 
     def _save_name(self) -> None:
         try:
-            self._services.profile.rename(self._name.text())
+            self._services.profile.rename(self._name.text(), self._family.text())
         except ProfileError as error:
             self._name_status.setStyleSheet(f"color: {theme.RED_TEXT};")
             self._name_status.setText(str(error))

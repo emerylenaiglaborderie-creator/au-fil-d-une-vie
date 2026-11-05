@@ -36,6 +36,26 @@ def test_un_prenom_est_obligatoire(conn: sqlite3.Connection) -> None:
         ProfileService(ProfileRepository(conn)).save("   ", under_15=False)
 
 
+def test_le_nom_de_famille_est_facultatif(conn: sqlite3.Connection) -> None:
+    service = ProfileService(ProfileRepository(conn))
+    assert service.save("Camille", under_15=False).family_name is None
+    profil = service.save("Camille", under_15=False, family_name="  Morvan ")
+    assert profil.family_name == "Morvan"
+
+
+def test_renommer_garde_ou_change_le_nom_de_famille(conn: sqlite3.Connection) -> None:
+    service = ProfileService(ProfileRepository(conn))
+    service.save("Camille", under_15=False, family_name="Morvan")
+    assert service.rename("Camille-Rose").family_name == "Morvan"  # inchangé
+    assert service.rename("Camille", "Le Goff").family_name == "Le Goff"
+    assert service.rename("Camille", "").family_name is None  # retiré
+
+
+def test_un_nom_de_famille_trop_long_est_refuse(conn: sqlite3.Connection) -> None:
+    with pytest.raises(ProfileError):
+        ProfileService(ProfileRepository(conn)).save("Camille", False, family_name="x" * 41)
+
+
 # Proches
 
 

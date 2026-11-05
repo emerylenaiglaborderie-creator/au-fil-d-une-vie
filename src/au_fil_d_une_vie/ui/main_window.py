@@ -1,9 +1,12 @@
-"""Fenêtre principale : en-tête de navigation, écrans, rappel de confidentialité."""
+"""Fenêtre principale : l'arbre d'accueil, les écrans, l'en-tête et le rappel de confidentialité.
+
+Il n'y a pas de menu : l'arbre ouvre chaque section, et le petit arbre de l'en-tête
+y ramène.
+"""
 
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QCloseEvent, QIcon
 from PySide6.QtWidgets import (
-    QButtonGroup,
     QHBoxLayout,
     QMainWindow,
     QPushButton,
@@ -26,24 +29,25 @@ from au_fil_d_une_vie.ui.screens.quest import QuestScreen
 from au_fil_d_une_vie.ui.screens.settings import SettingsScreen
 from au_fil_d_une_vie.ui.screens.stories import StoriesScreen
 from au_fil_d_une_vie.ui.screens.story import StoryScreen
+from au_fil_d_une_vie.ui.screens.tree import TreeScreen
 from au_fil_d_une_vie.ui.screens.welcome import WelcomeScreen
+from au_fil_d_une_vie.ui.text import plural
 from au_fil_d_une_vie.ui.tracks_dialog import TracksDialog
 from au_fil_d_une_vie.ui.widgets import (
-    NavLink,
-    Picture,
+    MiniTree,
+    SectionMark,
     ThreadProgress,
     WashedPage,
     icon_pixmap,
     label,
     link_button,
-    outline_button,
 )
 
 PRIVACY = "Tout reste sur cet ordinateur. Rien n'est envoyé en ligne."
 
 
 class MainWindow(QMainWindow):
-    QUEST, INTERVIEW, STORIES, GRAPH, STORY, WELCOME, SETTINGS = range(7)
+    QUEST, INTERVIEW, STORIES, GRAPH, STORY, WELCOME, SETTINGS, TREE = range(8)
 
     preferences_changed = Signal()
 
@@ -90,6 +94,10 @@ class MainWindow(QMainWindow):
         self.story.deleted.connect(lambda: self.show_screen(self.STORIES))
         self.graph = GraphScreen(services.graph, services.stories)
         self.graph.story_opened.connect(self.show_story)
+        self.tree = TreeScreen(services.quest)
+        self.tree.section_requested.connect(self._open_section)
+        self.tree.person_opened.connect(self._open_person)
+        self.tree.manage_people.connect(self.open_people)
 
         self._bridge = TranscriptionBridge(services.transcription, self)
         self._bridge.progress.connect(self._transcription_progress)
@@ -104,6 +112,7 @@ class MainWindow(QMainWindow):
             self.story,
             self.welcome,
             self.settings,
+            self.tree,
         ):
             self._stack.addWidget(self._scrollable(screen))
         layout.addWidget(self._stack, 1)
@@ -112,20 +121,42 @@ class MainWindow(QMainWindow):
         if services.profile.get() is None:
             self._show_welcome()
         else:
-            self.show_screen(self.QUEST)
+            self.show_screen(self.TREE)
 
     def _open_interview(self, question_id: int, person_id: int) -> None:
         self.interview.open(question_id, person_id)
         self.show_screen(self.INTERVIEW)
 
     def _show_welcome(self) -> None:
-        """Premier lancement : la navigation attend que le profil soit créé."""
-        self._nav_box.hide()
+        """Premier lancement : l'en-tête attend que le profil soit créé."""
+        self._header_tools.hide()
         self._stack.setCurrentIndex(self.WELCOME)
 
     def _welcome_done(self) -> None:
-        self._nav_box.show()
-        self.show_screen(self.QUEST)
+        self._header_tools.show()
+        self.quest.refresh()  # proches et pistes créés pendant l'accueil
+        self.show_screen(self.TREE)
+
+    def _open_section(self, section: int) -> None:
+        """Une étiquette de l'arbre a été choisie."""
+        if section == TreeScreen.BOOK:
+            self.open_book()
+            return
+        screens = {
+            TreeScreen.INTERVIEW: self.INTERVIEW,
+            TreeScreen.TRACKS: self.QUEST,
+            TreeScreen.STORIES: self.STORIES,
+            TreeScreen.GRAPH: self.GRAPH,
+        }
+        if section == TreeScreen.STORIES:
+            self.stories.show_person("")
+        self.show_screen(screens[section])
+
+    def _open_person(self, person_id: int) -> None:
+        """Une racine de l'arbre : les récits de ce proche."""
+        person = next((p for p, _count in self._services.people.all() if p.id == person_id), None)
+        self.stories.show_person(person.display_name if person else "")
+        self.show_screen(self.STORIES)
 
     def open_people(self) -> PeopleDialog:
         dialog = PeopleDialog(self._services.people, self)
@@ -142,6 +173,8 @@ class MainWindow(QMainWindow):
     def _after_people(self) -> None:
         """Après une modification des proches ou des pistes : rafraîchir ce qui en dépend."""
         self.quest.refresh()
+        self.tree.refresh()
+        self._update_header(self._stack.currentIndex())
         if self._stack.currentIndex() == self.SETTINGS:
             self.settings.refresh()
         if not self.interview.is_recording():
@@ -184,9 +217,6 @@ class MainWindow(QMainWindow):
     def show_screen(self, index: int) -> None:
         current = self._stack.currentIndex()
         if current == self.INTERVIEW and index != current and not self._may_leave_interview():
-            button = self._nav.button(current)
-            if button is not None:
-                button.setChecked(True)
             return
         if index == self.INTERVIEW and current != self.INTERVIEW:
             self.interview.open()
@@ -198,18 +228,45 @@ class MainWindow(QMainWindow):
             self.graph.refresh()
         if index == self.SETTINGS:
             self.settings.refresh()
+        if index == self.TREE:
+            self.tree.refresh()
         self._stack.setCurrentIndex(index)
         self._scroll_to_top(index)
-        button = self._nav.button(self.STORIES if index == self.STORY else index)
-        if button is not None:
-            button.setChecked(True)
-        else:  # écran hors navigation (paramètres) : aucun lien actif
-            self._nav.setExclusive(False)
-            for link in self._nav.buttons():
-                link.setChecked(False)
-            self._nav.setExclusive(True)
+        self._update_header(index)
         if index == self.QUEST:
             self.quest.refresh()
+
+    def section_name(self, index: int) -> str:
+        """Nom affiché dans l'en-tête pour un écran (vide pour l'arbre et l'accueil)."""
+        names = {
+            self.QUEST: _("Les pistes"),
+            self.INTERVIEW: _("Interview"),
+            self.STORIES: _("Mes récits"),
+            self.STORY: _("Mes récits"),
+            self.GRAPH: _("Au fil des mots"),
+            self.SETTINGS: _("Réglages"),
+        }
+        return names.get(index, "")
+
+    def _update_header(self, index: int) -> None:
+        on_tree = index == self.TREE
+        self._section.set_text(self.section_name(index))
+        self._section.setVisible(not on_tree)
+        self.mini_tree.setVisible(not on_tree)
+        self._family.setVisible(on_tree)
+        self._settings_button.setVisible(on_tree)
+        if on_tree:
+            self._family.setText(self._family_summary())
+
+    def _family_summary(self) -> str:
+        """« Famille Morvan · 6 récits · 3 personnes » en haut de l'arbre."""
+        overview = self._services.quest.overview()
+        parts = []
+        if overview.family_name:
+            parts.append(_("Famille {name}").format(name=overview.family_name))
+        parts.append(plural(overview.story_count, "récit", "récits"))
+        parts.append(plural(len(overview.people), "personne", "personnes"))
+        return " · ".join(parts)
 
     def _scrollable(self, screen: QWidget) -> QScrollArea:
         page = WashedPage()
@@ -230,37 +287,31 @@ class MainWindow(QMainWindow):
         row.setContentsMargins(48, 0, 48, 0)
         row.setSpacing(12)
 
-        tree = Picture(theme.IMAGES / "arbre.png", 46)
-        tree.setFixedSize(46, 50)
-        row.addWidget(tree)
         row.addWidget(label("Au fil d'une vie", theme.SCRIPT, 42, color=theme.INK_SOFT))
         row.addStretch(1)
 
-        self._nav_box = QWidget()
-        nav = QHBoxLayout(self._nav_box)
-        nav.setContentsMargins(0, 0, 0, 0)
-        nav.setSpacing(12)
-        self._nav = QButtonGroup(self)
-        for index, text in enumerate((_("Ma quête"), _("Interview"), _("Récits"), _("Graphe"))):
-            link = NavLink(text)
-            self._nav.addButton(link, index)
-            nav.addWidget(link)
-        self._nav.idClicked.connect(self.show_screen)
-        nav.addSpacing(20)
-        book = outline_button(_("Livre de famille"))
-        book.clicked.connect(self.open_book)
-        nav.addWidget(book)
-        gear = QPushButton()
-        gear.setObjectName("outline")
-        gear.setIcon(QIcon(icon_pixmap("gear", 20, theme.INK_SOFT)))
-        gear.setIconSize(QSize(20, 20))
-        gear.setFixedWidth(48)
-        gear.setToolTip(_("Paramètres"))
-        gear.setAccessibleName(_("Paramètres"))
-        gear.setCursor(Qt.CursorShape.PointingHandCursor)
-        gear.clicked.connect(lambda: self.show_screen(self.SETTINGS))
-        nav.addWidget(gear)
-        row.addWidget(self._nav_box)
+        self._header_tools = QWidget()
+        tools = QHBoxLayout(self._header_tools)
+        tools.setContentsMargins(0, 0, 0, 0)
+        tools.setSpacing(18)
+        # Sur l'arbre : la famille en quelques mots, et l'accès aux réglages.
+        self._family = label("", px=15, color=theme.MUTED)
+        tools.addWidget(self._family)
+        self._settings_button = QPushButton(_("Réglages"))
+        self._settings_button.setObjectName("outline")
+        self._settings_button.setIcon(QIcon(icon_pixmap("gear", 18, theme.INK_SOFT)))
+        self._settings_button.setIconSize(QSize(18, 18))
+        self._settings_button.setAccessibleName(_("Réglages"))
+        self._settings_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._settings_button.clicked.connect(lambda: self.show_screen(self.SETTINGS))
+        tools.addWidget(self._settings_button)
+        # Ailleurs : la section courante, et le petit arbre qui ramène à l'accueil.
+        self._section = SectionMark()
+        tools.addWidget(self._section)
+        self.mini_tree = MiniTree()
+        self.mini_tree.clicked.connect(lambda: self.show_screen(self.TREE))
+        tools.addWidget(self.mini_tree)
+        row.addWidget(self._header_tools)
         return header
 
     def _footer(self) -> QWidget:

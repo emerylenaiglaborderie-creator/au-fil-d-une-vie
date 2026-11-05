@@ -22,6 +22,7 @@ class Profile:
     under_15: bool
     parental_consent_at: datetime | None
     created_at: datetime
+    family_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -13,6 +13,7 @@ from au_fil_d_une_vie.services.fake_audio import FakeAudioInput, tone
 from au_fil_d_une_vie.services.recording import RecordingState
 from au_fil_d_une_vie.ui.app import create_application
 from au_fil_d_une_vie.ui.main_window import MainWindow
+from au_fil_d_une_vie.ui.screens.tree import TreeScreen
 from au_fil_d_une_vie.ui.widgets import ClickableFrame, LeafToggle, PrimaryButton
 
 
@@ -59,8 +60,10 @@ def _texte_question(window: MainWindow) -> str:
     return piste.question.text
 
 
-def test_l_accueil_salue_et_propose_une_piste(window: MainWindow) -> None:
-    assert window.quest._hello.text() == "Bonjour Camille"
+def test_l_arbre_accueille_et_les_pistes_proposent_une_question(window: MainWindow) -> None:
+    assert window.current_screen() == MainWindow.TREE
+    assert window.tree._hello.text() == "Bonjour Camille"
+    assert window.quest._hello.text() == "Les pistes"
     assert _texte_question(window) == "Quelle chanson te rappelle ta jeunesse ?"
 
 
@@ -92,6 +95,76 @@ def test_la_navigation_change_d_ecran(window: MainWindow) -> None:
     assert window._stack.currentIndex() == MainWindow.GRAPH
     window.show_screen(MainWindow.QUEST)
     assert window._stack.currentIndex() == MainWindow.QUEST
+
+
+# Arbre d'accueil
+
+
+@pytest.mark.parametrize(
+    ("section", "ecran", "nom"),
+    [
+        (TreeScreen.INTERVIEW, MainWindow.INTERVIEW, "Interview"),
+        (TreeScreen.TRACKS, MainWindow.QUEST, "Les pistes"),
+        (TreeScreen.STORIES, MainWindow.STORIES, "Mes récits"),
+        (TreeScreen.GRAPH, MainWindow.GRAPH, "Au fil des mots"),
+    ],
+)
+def test_chaque_etiquette_de_l_arbre_ouvre_sa_section(
+    window: MainWindow, section: int, ecran: int, nom: str
+) -> None:
+    window.tree.tags[section].activated.emit(section)
+    assert window.current_screen() == ecran
+    assert window._section.text() == nom
+    assert window.mini_tree.isVisibleTo(window)
+
+
+def test_le_mini_arbre_ramene_a_l_arbre(qtbot: QtBot, window: MainWindow) -> None:
+    window.show_screen(MainWindow.GRAPH)
+    qtbot.mouseClick(window.mini_tree, Qt.MouseButton.LeftButton)
+    assert window.current_screen() == MainWindow.TREE
+    assert not window.mini_tree.isVisibleTo(window)
+    assert window._settings_button.isVisibleTo(window)
+
+
+def test_l_etiquette_du_livre_ouvre_le_livre(qtbot: QtBot, window: MainWindow) -> None:
+    from au_fil_d_une_vie.ui.book_dialog import BookDialog
+
+    window.tree.tags[TreeScreen.BOOK].activated.emit(TreeScreen.BOOK)
+    dialogue = window.findChild(BookDialog)
+    assert dialogue is not None and dialogue.isVisible()
+    dialogue.reject()
+
+
+def test_les_etiquettes_resument_la_quete(window: MainWindow) -> None:
+    tags = window.tree.tags
+    assert tags[TreeScreen.INTERVIEW].subtitle() == "prochaine piste : Musique"
+    assert tags[TreeScreen.TRACKS].subtitle() == "6 thèmes à explorer"
+    assert tags[TreeScreen.STORIES].subtitle() == "6 récits recueillis"
+
+
+def test_une_racine_ouvre_les_recits_du_proche(window: MainWindow) -> None:
+    racine = next(r for r in window.tree.roots if r.name() == "Papa")
+    racine.activated.emit(racine.person_id)
+    assert window.current_screen() == MainWindow.STORIES
+    assert window.stories._search.text() == "Papa"
+    window.tree.tags[TreeScreen.STORIES].activated.emit(TreeScreen.STORIES)
+    assert window.stories._search.text() == ""  # l'étiquette montre tous les récits
+
+
+def test_les_racines_portent_les_proches(window: MainWindow) -> None:
+    assert {r.name() for r in window.tree.roots} == {
+        "Mamie Yvonne",
+        "Papa",
+        "Tonton Alain",
+        "Tata Nadine",
+    }
+
+
+def test_l_en_tete_de_l_arbre_resume_la_famille(window: MainWindow, services: Services) -> None:
+    assert window._family.text() == "6 récits · 4 personnes"
+    services.profile.rename("Camille", "Morvan")
+    window.show_screen(MainWindow.TREE)
+    assert window._family.text() == "Famille Morvan · 6 récits · 4 personnes"
 
 
 # Interview
@@ -301,7 +374,7 @@ def test_la_fiche_affiche_le_recit_surligne(fiche: MainWindow) -> None:
     assert fiche._stack.currentIndex() == MainWindow.STORY
     assert ecran._teller.text() == "Mamie Yvonne raconte"
     assert "background-color" in ecran._text.text()
-    assert fiche._nav.checkedId() == MainWindow.STORIES
+    assert fiche._section.text() == "Mes récits"
 
 
 def test_corriger_la_transcription_depuis_l_onglet_brut(
@@ -486,7 +559,7 @@ def neuve(qtbot: QtBot, tmp_path: Path, micro: FakeAudioInput) -> Iterator[MainW
 
 def test_le_premier_lancement_commence_par_l_accueil(neuve: MainWindow) -> None:
     assert neuve._stack.currentIndex() == MainWindow.WELCOME
-    assert not neuve._nav_box.isVisibleTo(neuve)
+    assert not neuve._header_tools.isVisibleTo(neuve)
     assert not neuve.welcome._start.isEnabled()
 
 
@@ -500,7 +573,7 @@ def test_sous_15_ans_l_accord_parental_debloque_le_depart(qtbot: QtBot, neuve: M
     assert accueil._start.isEnabled()
 
 
-def test_terminer_l_accueil_ouvre_la_quete(qtbot: QtBot, neuve: MainWindow) -> None:
+def test_terminer_l_accueil_ouvre_l_arbre(qtbot: QtBot, neuve: MainWindow) -> None:
     accueil = neuve.welcome
     accueil._name.setText("Camille")
     accueil._age.button(accueil.OLDER).click()
@@ -511,9 +584,9 @@ def test_terminer_l_accueil_ouvre_la_quete(qtbot: QtBot, neuve: MainWindow) -> N
     assert accueil._person_error.isVisibleTo(accueil)
     qtbot.mouseClick(accueil._start, Qt.MouseButton.LeftButton)
 
-    assert neuve._stack.currentIndex() == MainWindow.QUEST
-    assert neuve._nav_box.isVisibleTo(neuve)
-    assert neuve.quest._hello.text() == "Bonjour Camille"
+    assert neuve._stack.currentIndex() == MainWindow.TREE
+    assert neuve._header_tools.isVisibleTo(neuve)
+    assert neuve.tree._hello.text() == "Bonjour Camille"
     assert neuve.quest._track is not None
     assert neuve.quest._people.checkedId() > 0
 
@@ -547,8 +620,19 @@ def test_changer_son_prenom_dans_les_parametres(window: MainWindow, services: Se
     ecran._save_name()
     profil = services.profile.get()
     assert profil is not None and profil.first_name == "Camille-Rose"
-    window.show_screen(MainWindow.QUEST)
-    assert window.quest._hello.text() == "Bonjour Camille-Rose"
+    window.show_screen(MainWindow.TREE)
+    assert window.tree._hello.text() == "Bonjour Camille-Rose"
+
+
+def test_ajouter_son_nom_de_famille_dans_les_parametres(
+    window: MainWindow, services: Services
+) -> None:
+    window.show_screen(MainWindow.SETTINGS)
+    window.settings._family.setText("Morvan")
+    window.settings._save_name()
+    profil = services.profile.get()
+    assert profil is not None and profil.family_name == "Morvan"
+    assert profil.first_name == "Camille"
 
 
 def test_choisir_le_theme_nuit_reconstruit_la_fenetre(
@@ -631,10 +715,11 @@ def test_passer_l_interface_en_anglais(qtbot: QtBot, services: Services) -> None
     fenetre = controleur.window
     qtbot.addWidget(fenetre)
     assert services.settings.load().language == "en"
+    fenetre.show_screen(MainWindow.TREE)
+    assert fenetre.tree._hello.text() == "Hello Camille"
+    assert fenetre.tree.tags[TreeScreen.STORIES].spec.title == "My stories"
     fenetre.show_screen(MainWindow.QUEST)
-    assert fenetre.quest._hello.text() == "Hello Camille"
-    liens = [b.text() for b in fenetre._nav.buttons()]
-    assert liens == ["My quest", "Interview", "Stories", "Graph"]
+    assert fenetre._section.text() == "Tracks"
 
 
 def test_une_premiere_quete_en_anglais_recoit_les_pistes_en_anglais(
@@ -663,7 +748,7 @@ def test_une_premiere_quete_en_anglais_recoit_les_pistes_en_anglais(
     accueil._finish()
     pistes = [t.theme.label for t in services.tracks.all()]
     assert pistes[:2] == ["Childhood", "Encounters"]
-    assert fenetre.quest._hello.text() == "Hello Sam"
+    assert fenetre.tree._hello.text() == "Hello Sam"
 
 
 def _textes_affiches(racine: QWidget) -> list[str]:

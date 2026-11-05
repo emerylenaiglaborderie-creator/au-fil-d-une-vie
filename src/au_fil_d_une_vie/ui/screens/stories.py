@@ -207,6 +207,14 @@ class StoriesScreen(QWidget):
         self._theme_id = theme_id
         self.refresh()
 
+    def show_person(self, name: str) -> None:
+        """Récits d'un proche (depuis les racines de l'arbre) : recherche sur son nom."""
+        self._theme_id = None
+        self._search.blockSignals(True)
+        self._search.setText(name)
+        self._search.blockSignals(False)
+        self.refresh()
+
     def refresh(self) -> None:
         self._fill_tabs()
         self._fill_list()

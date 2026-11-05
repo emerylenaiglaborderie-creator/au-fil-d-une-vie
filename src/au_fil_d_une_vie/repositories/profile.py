@@ -13,7 +13,10 @@ class ProfileRepository:
 
     def get(self) -> Profile | None:
         row = self._conn.execute(
-            "SELECT first_name, under_15, parental_consent_at, created_at FROM profile WHERE id = 1"
+            """
+            SELECT first_name, family_name, under_15, parental_consent_at, created_at
+            FROM profile WHERE id = 1
+            """
         ).fetchone()
         if row is None:
             return None
@@ -23,24 +26,31 @@ class ProfileRepository:
             under_15=bool(row["under_15"]),
             parental_consent_at=parse_iso(consent) if consent else None,
             created_at=parse_iso(row["created_at"]),
+            family_name=row["family_name"],
         )
 
     def save(
-        self, first_name: str, under_15: bool, parental_consent_at: datetime | None = None
+        self,
+        first_name: str,
+        under_15: bool,
+        parental_consent_at: datetime | None = None,
+        family_name: str | None = None,
     ) -> Profile:
         """Crée ou met à jour le profil. Sous 15 ans, l'accord parental est exigé par la base."""
         consent = parental_consent_at.isoformat(timespec="seconds") if parental_consent_at else None
         with self._conn:
             self._conn.execute(
                 """
-                INSERT INTO profile (id, first_name, under_15, parental_consent_at, created_at)
-                VALUES (1, ?, ?, ?, ?)
+                INSERT INTO profile
+                    (id, first_name, family_name, under_15, parental_consent_at, created_at)
+                VALUES (1, ?, ?, ?, ?, ?)
                 ON CONFLICT (id) DO UPDATE SET
                     first_name = excluded.first_name,
+                    family_name = excluded.family_name,
                     under_15 = excluded.under_15,
                     parental_consent_at = excluded.parental_consent_at
                 """,
-                (first_name, int(under_15), consent, now_iso()),
+                (first_name, family_name, int(under_15), consent, now_iso()),
             )
         profile = self.get()
         assert profile is not None

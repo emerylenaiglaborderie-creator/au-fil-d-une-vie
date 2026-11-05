@@ -13,6 +13,8 @@ EN: dict[str, str] = {
     "Livre de famille": "Family book",
     "Paramètres": "Settings",
     "Réglages": "Settings",
+    "Retour à l'arbre": "Back to the tree",
+    "Mon arbre": "My tree",
     "Tout reste sur cet ordinateur. Rien n'est envoyé en ligne.": (
         "Everything stays on this computer. Nothing is sent online."
     ),
@@ -51,6 +53,8 @@ EN: dict[str, str] = {
     "récit recueilli": "story collected",
     "récits recueillis": "stories collected",
     "personne": "person",
+    "thème": "theme",
+    "thèmes": "themes",
     "personnes": "people",
     "proche": "relative",
     "proches": "relatives",
@@ -95,6 +99,24 @@ EN: dict[str, str] = {
     # Ma quête
     "Bonjour": "Hello",
     "Bonjour {name}": "Hello {name}",
+    "Chaque piste est un thème à explorer avec un proche. Voici la prochaine à suivre.": (
+        "Each track is a theme to explore with a relative. Here is the next one to follow."
+    ),
+    "Choisis une étiquette pour continuer ton enquête. Plus tu recueilles de récits, plus l'arbre grandit.": (
+        "Pick a tag to carry on your search. The more stories you gather, the more the tree grows."
+    ),
+    "N° {number}": "No. {number}",
+    "prochaine piste : {theme}": "next track: {theme}",
+    "pose une question à un proche": "ask a relative a question",
+    "{tracks} à explorer": "{tracks} to explore",
+    "{stories} recueillis": "{stories} gathered",
+    "ton premier récit t'attend": "your first story is waiting",
+    "les liens entre tes récits": "the links between your stories",
+    "le fruit de tes récits": "the fruit of your stories",
+    "Voir les récits de {name}": "See {name}'s stories",
+    "et {count} autres": "and {count} more",
+    "Ajoute un proche pour faire pousser les racines": "Add a relative to grow the roots",
+    "Famille {name}": "The {name} family",
     "Ton enquête avance. Voici la prochaine piste à suivre.": (
         "Your search is moving forward. Here is the next track to follow."
     ),
@@ -369,6 +391,10 @@ EN: dict[str, str] = {
     "Installer le modèle": "Install the model",
     "Indique ton prénom.": "Enter your first name.",
     "Ce prénom est trop long.": "This first name is too long.",
+    "Ce nom de famille est trop long.": "This family name is too long.",
+    "Ton nom de famille (facultatif)": "Your family name (optional)",
+    "Nom de famille (facultatif)": "Family name (optional)",
+    "Ton prénom et ton nom de famille": "Your first name and family name",
     "Sous 15 ans, l'accord d'un parent est nécessaire.": "Under 15, a parent's consent is required.",
     "Aucun profil à modifier.": "No profile to edit.",
     # Pistes

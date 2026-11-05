@@ -2,10 +2,20 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import QByteArray, QEvent, QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import (
+    QByteArray,
+    QPointF,
+    QRectF,
+    QSize,
+    Qt,
+    QTimer,
+    QVariantAnimation,
+    Signal,
+)
 from PySide6.QtGui import (
     QColor,
     QEnterEvent,
+    QFocusEvent,
     QFont,
     QFontMetrics,
     QIcon,
@@ -194,48 +204,113 @@ class PrimaryButton(QPushButton):
         )
 
 
-class NavLink(QAbstractButton):
-    """Lien de navigation : le lien actif porte un petit point rouge."""
+class SectionMark(QWidget):
+    """Nom de la section courante, précédé d'un petit point rouge (en-tête)."""
 
-    def __init__(self, text: str, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setText(text)
-        self.setCheckable(True)
-        self.setAutoExclusive(True)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._hover = False
+        self._text = ""
+        self._font = theme.font(theme.SANS, 16, QFont.Weight.DemiBold)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
-    def _font(self) -> QFont:
-        weight = QFont.Weight.DemiBold if self.isChecked() else QFont.Weight.Medium
-        return theme.font(theme.SANS, 16, weight)
+    def set_text(self, text: str) -> None:
+        self._text = text
+        self.setAccessibleName(text)
+        self.updateGeometry()
+        self.update()
+
+    def text(self) -> str:
+        return self._text
 
     def sizeHint(self) -> QSize:
-        width = self.fontMetrics().horizontalAdvance(self.text()) * 1.08 + 36 + 16
-        return QSize(int(width), 76)
-
-    def enterEvent(self, event: QEnterEvent) -> None:
-        self._hover = True
-        self.update()
-
-    def leaveEvent(self, event: QEvent) -> None:
-        self._hover = False
-        self.update()
+        width = QFontMetrics(self._font).horizontalAdvance(self._text) + 24
+        return QSize(width, 76)
 
     def paintEvent(self, event: QPaintEvent) -> None:
+        if not self._text:
+            return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        x = 18.0
-        if self.isChecked():
-            paint_dot(painter, QPointF(x + 4, self.height() / 2), 8, filled=True)
-            x += 16
-        active = self.isChecked() or self._hover
-        painter.setPen(theme.color(theme.INK_STRONG if active else theme.NAV_MUTED))
-        painter.setFont(self._font())
+        paint_dot(painter, QPointF(4, self.height() / 2), 8, filled=True)
+        painter.setPen(theme.color(theme.INK_STRONG))
+        painter.setFont(self._font)
         painter.drawText(
-            QRectF(x, 0, self.width() - x, self.height()),
+            QRectF(16, 0, self.width() - 16, self.height()),
             Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft,
-            self.text(),
+            self._text,
         )
+
+
+class MiniTree(QAbstractButton):
+    """Petit arbre cliquable de l'en-tête : ramène à l'arbre d'accueil.
+
+    Il se balance au survol et au focus, comme les étiquettes accrochées à l'arbre.
+    """
+
+    HEIGHT = 58
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._pixmap = QPixmap(str(theme.IMAGES / "arbre.png"))
+        self._angle = 0.0
+        self._swing = QVariantAnimation(self)
+        self._swing.setDuration(900)
+        for step, value in ((0.0, 0.0), (0.25, 5.0), (0.5, -4.0), (0.75, 2.0), (1.0, 0.0)):
+            self._swing.setKeyValueAt(step, value)
+        self._swing.valueChanged.connect(self._set_angle)
+        self._keyboard_focus = False
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.setToolTip(_("Retour à l'arbre"))
+        self.setAccessibleName(_("Retour à l'arbre"))
+
+    def _set_angle(self, value: float) -> None:
+        self._angle = float(value)
+        self.update()
+
+    def sizeHint(self) -> QSize:
+        ratio = self._pixmap.width() / self._pixmap.height() if not self._pixmap.isNull() else 1
+        return QSize(int(self.HEIGHT * ratio) + 16, self.HEIGHT + 12)
+
+    def swing(self) -> None:
+        if self._swing.state() != QVariantAnimation.State.Running:
+            self._swing.start()
+
+    def enterEvent(self, event: QEnterEvent) -> None:
+        self.swing()
+
+    def focusInEvent(self, event: QFocusEvent) -> None:
+        self._keyboard_focus = event.reason() in (
+            Qt.FocusReason.TabFocusReason,
+            Qt.FocusReason.BacktabFocusReason,
+        )
+        self.swing()
+        super().focusInEvent(event)
+
+    def focusOutEvent(self, event: QFocusEvent) -> None:
+        self._keyboard_focus = False
+        super().focusOutEvent(event)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        if self._pixmap.isNull():
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        height = float(self.HEIGHT)
+        width = height * self._pixmap.width() / self._pixmap.height()
+        foot = QPointF(self.width() / 2, (self.height() + height) / 2)
+        painter.translate(foot)
+        painter.rotate(self._angle)  # l'arbre pivote autour du pied de son tronc
+        painter.drawPixmap(
+            QRectF(-width / 2, -height, width, height), self._pixmap, QRectF(self._pixmap.rect())
+        )
+        painter.resetTransform()
+        if self.hasFocus() and self._keyboard_focus:  # repère du focus clavier seulement
+            painter.setPen(QPen(theme.color(theme.RED), 2))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 6, 6)
 
 
 class LeafToggle(QPushButton):

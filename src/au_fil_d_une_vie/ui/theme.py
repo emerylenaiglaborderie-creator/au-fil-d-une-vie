@@ -44,6 +44,8 @@ LIGHT: dict[str, str] = {
     "ROW_HOVER": "#F1F5E6",
     "INPUT_BORDER": "#CFD6BC",
     "QUOTE": "#444444",
+    "PAPER": "#FFFDF6",  # fiches et étiquettes d'herbier
+    "WASH": "#CFE0A0",  # lavis vert des ombres pleines décalées
 }
 
 DARK: dict[str, str] = {
@@ -78,13 +80,15 @@ DARK: dict[str, str] = {
     "ROW_HOVER": "#2A3122",
     "INPUT_BORDER": "#4A4843",
     "QUOTE": "#CFCAC0",
+    "PAPER": "#2A2823",
+    "WASH": "#3F5228",
 }
 
 CREAM = SURFACE = ON_RED = INK = INK_SOFT = INK_STRONG = THREAD = THREAD_SOFT = ""
 DOTTED = TRACK = RED = RED_SHADOW = RED_TEXT = LEAF = LEAF_HOVER = LEAF_TEXT = ""
 LEAF_TEXT_SOFT = LEAF_BORDER = LEAF_BORDER_HOVER = LEAF_BULLET = WORD_GREEN = BORDER = ""
 SOFT_GREEN = SOFT_GREEN_BORDER = MUTED = NAV_MUTED = CHIP_OUTLINE_TEXT = DASHED = ""
-ROW_HOVER = INPUT_BORDER = QUOTE = ""
+ROW_HOVER = INPUT_BORDER = QUOTE = PAPER = WASH = ""
 DARK_MODE = False
 WASH_OPACITY = 0.4
 TREE_OPACITY = 0.5  # arbre en fond du graphe

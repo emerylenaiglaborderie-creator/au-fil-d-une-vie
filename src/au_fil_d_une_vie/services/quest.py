@@ -41,6 +41,7 @@ class QuestOverview:
     first_name: str | None
     themes: list[ThemeProgress]
     people: list[PersonProgress]
+    family_name: str | None = None
 
     @property
     def story_count(self) -> int:
@@ -69,6 +70,7 @@ class QuestService:
                 for theme in self._themes.list_themes()
             ],
             people=[PersonProgress(p, n) for p, n in self._people.list_with_story_count()],
+            family_name=profile.family_name if profile else None,
         )
 
     def next_track(self, skip: Collection[int] = ()) -> Track | None:

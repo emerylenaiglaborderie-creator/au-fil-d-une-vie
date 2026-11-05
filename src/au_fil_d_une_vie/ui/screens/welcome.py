@@ -104,7 +104,16 @@ class WelcomeScreen(QWidget):
         self._name.setFont(theme.font(theme.SERIF, 22, italic=True))
         self._name.setMaximumWidth(360)
         self._name.textChanged.connect(lambda _t: self._update())
-        form.addWidget(self._name)
+        self._family = SearchField(_("Ton nom de famille (facultatif)"))
+        self._family.setClearButtonEnabled(False)
+        self._family.setFont(theme.font(theme.SERIF, 22, italic=True))
+        self._family.setMaximumWidth(360)
+        names = QHBoxLayout()
+        names.setSpacing(12)
+        names.addWidget(self._name)
+        names.addWidget(self._family)
+        names.addStretch(1)
+        form.addLayout(names)
         form.addSpacing(8)
 
         form.addWidget(eyebrow(_("Quel âge as-tu ?"), color=theme.MUTED, spacing_em=0.14))
@@ -230,7 +239,10 @@ class WelcomeScreen(QWidget):
     def _finish(self) -> None:
         try:
             self._profile.save(
-                self._name.text(), self._under_15(), self._parent_consent.is_checked()
+                self._name.text(),
+                self._under_15(),
+                self._parent_consent.is_checked(),
+                family_name=self._family.text(),
             )
         except ProfileError as error:
             self._error.setText(str(error))

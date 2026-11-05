@@ -4,6 +4,7 @@
 
 - arbre.png : l'arbre du logo (avec son fil et ses points), sans le texte ;
 - arbre-fond.png : l'arbre sans fil ni points, fond du graphe ;
+- arbre-accueil.png : l'arbre entier sans fil ni points, en grand, pour l'écran Mon arbre ;
 - icone.png (1024 px), icone.ico (Windows), icone.icns (macOS, si iconutil est là) ;
 - logo.png : le logo complet réduit, fond blanc rendu transparent ;
 - lavis.png : le lavis aquarelle décoratif (remplace le filtre SVG de la maquette).
@@ -179,6 +180,11 @@ def icns(png: Path, sortie: Path) -> None:
         subprocess.run(["iconutil", "-c", "icns", str(jeu), "-o", str(sortie)], check=True)
 
 
+def arbre_accueil(seul: QImage) -> QImage:
+    """L'arbre seul, tronc compris, assez grand pour l'écran d'accueil sur écran Retina."""
+    return blanc_vers_transparent(reduire(seul.copy(ZONE_ICONE), 1000))
+
+
 def main() -> None:
     _app = QGuiApplication(sys.argv)
     SORTIE.mkdir(parents=True, exist_ok=True)
@@ -195,6 +201,7 @@ def main() -> None:
         blanc_vers_transparent(reduire(seul.copy(ZONE_ARBRE), 560)).save(
             str(SORTIE / "arbre-fond.png")
         )
+        arbre_accueil(seul).save(str(SORTIE / "arbre-accueil.png"))
 
     ICONES.mkdir(parents=True, exist_ok=True)
     arbre = blanc_vers_transparent(reduire(arbre_complet(source, seul).copy(ZONE_ICONE), 900))

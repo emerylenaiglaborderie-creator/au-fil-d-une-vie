@@ -1,4 +1,7 @@
-"""Écran « Ma quête » : accueil, prochaine piste, avancement des pistes et des personnes."""
+"""Écran « Les pistes » : prochaine piste, avancement des pistes et des personnes.
+
+Ouvert depuis l'étiquette n° 2 de l'arbre d'accueil.
+"""
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
@@ -113,10 +116,9 @@ class QuestScreen(QWidget):
     def refresh(self) -> None:
         overview = self._service.overview()
         self._track = self._service.next_track(self._skipped)
-        name = overview.first_name
-        self._hello.setText(_("Bonjour {name}").format(name=name) if name else _("Bonjour"))
+        self._hello.setText(_("Les pistes"))
         self._intro.setText(
-            _("Ton enquête avance. Voici la prochaine piste à suivre.")
+            _("Chaque piste est un thème à explorer avec un proche. Voici la prochaine à suivre.")
             if overview.story_count
             else _("Ta quête commence ici. Choisis une piste et pose ta première question.")
         )
