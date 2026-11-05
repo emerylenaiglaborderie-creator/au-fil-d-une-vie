@@ -15,6 +15,8 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtTest import QTest  # noqa: E402
+
 from au_fil_d_une_vie.bootstrap import open_services  # noqa: E402
 from au_fil_d_une_vie.services.book_pdf import BookAssets, render_book  # noqa: E402
 from au_fil_d_une_vie.services.fake_audio import FakeAudioInput, tone  # noqa: E402
@@ -51,10 +53,12 @@ def main() -> None:
     fenetre.show()
 
     def capturer(nom: str) -> None:
-        app.processEvents()
+        QTest.qWait(1200)  # fin des animations d'apparition
         fenetre.grab().save(str(sortie / f"{nom}.png"))
         print(sortie / f"{nom}.png")
 
+    fenetre.show_screen(MainWindow.TREE)
+    capturer("arbre")
     fenetre.show_screen(MainWindow.QUEST)
     capturer("quete")
 
@@ -97,8 +101,12 @@ def main() -> None:
     nuit = MainWindow(services)
     nuit.resize(1360, 1300)
     nuit.show()
+    nuit.show_screen(MainWindow.TREE)
+    QTest.qWait(1200)
+    nuit.grab().save(str(sortie / "arbre-nuit.png"))
+    print(sortie / "arbre-nuit.png")
     nuit.show_screen(MainWindow.QUEST)
-    app.processEvents()
+    QTest.qWait(300)
     nuit.grab().save(str(sortie / "quete-nuit.png"))
     print(sortie / "quete-nuit.png")
     nuit.close()

@@ -151,6 +151,13 @@ def test_une_racine_ouvre_les_recits_du_proche(window: MainWindow) -> None:
     assert window.stories._search.text() == ""  # l'étiquette montre tous les récits
 
 
+def test_les_etiquettes_apparaissent_en_douceur(qtbot: QtBot, window: MainWindow) -> None:
+    window.tree.appear()
+    suspendues = window.tree._hangings
+    assert suspendues[-1].opacity() < 1.0  # pas encore visible : elle arrive en dernier
+    qtbot.waitUntil(lambda: all(h.opacity() == 1.0 for h in suspendues), timeout=3000)
+
+
 def test_les_racines_portent_les_proches(window: MainWindow) -> None:
     assert {r.name() for r in window.tree.roots} == {
         "Mamie Yvonne",

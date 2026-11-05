@@ -14,9 +14,11 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import (
     QEasingCurve,
+    QParallelAnimationGroup,
     QPointF,
     QPropertyAnimation,
     QRectF,
+    QSequentialAnimationGroup,
     Qt,
     Signal,
 )
@@ -30,10 +32,12 @@ from PySide6.QtGui import (
     QLinearGradient,
     QPainter,
     QPainterPath,
+    QPainterPathStroker,
     QPen,
     QPixmap,
     QRadialGradient,
     QResizeEvent,
+    QShowEvent,
 )
 from PySide6.QtWidgets import (
     QFrame,
@@ -337,9 +341,9 @@ class Knot(QGraphicsItem):
 
 
 class Ground(QGraphicsItem):
-    """Sol suggéré : une ombre de lavis sous le tronc et un trait qui s'efface aux bords."""
+    """Sol suggéré par une ombre de lavis sous le tronc, sans trait de démarcation."""
 
-    RX, RY = 330.0, 30.0
+    RX, RY = 340.0, 34.0
 
     def boundingRect(self) -> QRectF:
         return QRectF(TRUNK.x() - self.RX, GROUND_Y - self.RY, 2 * self.RX, 2 * self.RY)
@@ -353,32 +357,27 @@ class Ground(QGraphicsItem):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         wash = theme.color(theme.WASH)
         shadow = QRadialGradient(QPointF(TRUNK.x(), GROUND_Y), self.RX)
-        shadow.setColorAt(0.0, with_alpha(wash, 150))
-        shadow.setColorAt(0.6, with_alpha(wash, 60))
+        shadow.setColorAt(0.0, with_alpha(wash, 140))
+        shadow.setColorAt(0.55, with_alpha(wash, 55))
         shadow.setColorAt(1.0, with_alpha(wash, 0))
-        painter.save()
         painter.translate(TRUNK.x(), GROUND_Y)
         painter.scale(1.0, self.RY / self.RX)
-        painter.translate(-TRUNK.x(), -GROUND_Y)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QBrush(shadow))
-        painter.drawEllipse(QPointF(TRUNK.x(), GROUND_Y), self.RX, self.RX)
-        painter.restore()
-        line = QLinearGradient(TRUNK.x() - self.RX, 0, TRUNK.x() + self.RX, 0)
-        ink = theme.color(theme.INK_SOFT)
-        line.setColorAt(0.0, with_alpha(ink, 0))
-        line.setColorAt(0.5, with_alpha(ink, 120))
-        line.setColorAt(1.0, with_alpha(ink, 0))
-        painter.setPen(QPen(QBrush(line), 1.1))
-        painter.drawLine(
-            QPointF(TRUNK.x() - self.RX, GROUND_Y), QPointF(TRUNK.x() + self.RX, GROUND_Y)
-        )
+        painter.drawEllipse(QPointF(0, 0), self.RX, self.RX)
 
 
 class Root(QGraphicsObject):
-    """Racine effilée portant, à son extrémité, le nom d'un proche et ses récits."""
+    """Racine effilée qui sort du tronc ; le nom du proche est écrit le long d'elle.
+
+    Les récits recueillis auprès de lui sont des points rouges posés sur la racine,
+    comme des perles sur un fil (un point vide s'il n'y en a pas encore).
+    """
 
     activated = Signal(int)
+
+    NAME_PX = 34
+    MAX_DOTS = 5
 
     def __init__(
         self, person_id: int, name: str, story_count: int, end: QPointF, index: int
@@ -388,49 +387,60 @@ class Root(QGraphicsObject):
         self._name = name
         self._count = story_count
         self._hover = False
-        self._end = end
-        self._direction = 1 if end.x() >= TRUNK.x() else -1
-        d = self._direction
-        start = QPointF(TRUNK.x() + d * (3 + index % 3), TRUNK.y() - 2)
+        d = 1 if end.x() >= TRUNK.x() else -1
+        # Départ dans le tronc, au-dessus du sol : l'aquarelle recouvre la jonction.
+        start = QPointF(TRUNK.x() - 4 + d * (3 + (index // 2) * 4), TRUNK.y() - 56)
         drop = end.y() - start.y()
-        # Elle plonge d'abord, puis s'étire vers l'extérieur en s'affinant.
-        c1 = QPointF(start.x() + d * 8, start.y() + drop * 0.75)
-        c2 = QPointF(end.x() - d * abs(end.x() - start.x()) * 0.55, end.y() + 4)
-        self._stroke = tapered_stroke(start, c1, c2, end, 10 - index * 0.6, 1.8)
-        # Une radicelle, qui part du premier tiers de la racine.
-        fork = bezier(start, c1, c2, end, 0.42)
-        tip = fork + QPointF(d * 36, 26 + (index % 2) * 10)
+        c1 = QPointF(start.x() + d * 6, start.y() + drop * 0.7)
+        c2 = QPointF(end.x() - d * abs(end.x() - start.x()) * 0.6, end.y() + 2)
+        self._centre = QPainterPath(start)
+        self._centre.cubicTo(c1, c2, end)
+        self._stroke = tapered_stroke(start, c1, c2, end, 17 - index * 1.4, 1.8)
+        fork = bezier(start, c1, c2, end, 0.4)
+        tip = fork + QPointF(d * 34, 24 + (index % 2) * 10)
         self._rootlet = tapered_stroke(
             fork, fork + QPointF(d * 6, 12), tip - QPointF(d * 14, 2), tip, 3.0, 0.6
         )
-        self._gradient_end = end
-        self._start = start
-        self._font = theme.font(theme.SCRIPT, 38)
+        self._start, self._end = start, end
+        # Le texte se lit toujours de gauche à droite : à gauche du tronc, on parcourt
+        # la racine depuis sa pointe.
+        self._reading = self._centre if d > 0 else self._centre.toReversed()
+        self._outward = d > 0
+        self._font = theme.font(theme.SCRIPT, self.NAME_PX)
+        self._metrics = QFontMetricsF(self._font)
         self.setAcceptHoverEvents(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsFocusable)
         self.setToolTip(_("Voir les récits de {name}").format(name=name))
+        stroker = QPainterPathStroker()
+        stroker.setWidth(44)
+        self._hit = stroker.createStroke(self._centre)
 
     def name(self) -> str:
         return self._name
 
-    def _label_rect(self) -> QRectF:
-        width = 260.0
-        x = self._end.x() + 12 if self._direction > 0 else self._end.x() - 12 - width
-        return QRectF(x, self._end.y() - 30, width, 64)
-
     def boundingRect(self) -> QRectF:
         return (
-            self._stroke.boundingRect()
-            .united(self._rootlet.boundingRect())
-            .united(self._label_rect())
-            .adjusted(-4, -4, 4, 4)
+            self._hit.boundingRect().united(self._stroke.boundingRect()).adjusted(-40, -50, 40, 20)
         )
 
     def shape(self) -> QPainterPath:
-        path = QPainterPath()
-        path.addRect(self._label_rect())
-        return path
+        return self._hit
+
+    def _layout(self) -> tuple[float, float]:
+        """Début du nom et des perles, en longueur le long du parcours de lecture."""
+        total = self._reading.length()
+        name_length = self._metrics.horizontalAdvance(self._name)
+        beads = max(1, min(self._count, self.MAX_DOTS)) * 14
+        margin = 16.0
+        if self._outward:  # vers la droite : perles près du tronc, puis le nom jusqu'à la pointe
+            name_start = total - margin - name_length
+            return name_start, name_start - 18 - beads
+        return margin, margin + name_length + 18  # depuis la pointe : le nom, puis les perles
+
+    def _at(self, length: float) -> tuple[QPointF, float]:
+        percent = self._reading.percentAtLength(max(0.0, min(length, self._reading.length())))
+        return self._reading.pointAtPercent(percent), -self._reading.angleAtPercent(percent)
 
     def paint(
         self,
@@ -440,28 +450,35 @@ class Root(QGraphicsObject):
     ) -> None:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         bark = theme.color(theme.BARK)
-        fade = QLinearGradient(self._start, self._gradient_end)
-        fade.setColorAt(0.0, with_alpha(bark, 240))
-        fade.setColorAt(1.0, with_alpha(bark, 200))
+        # Le départ, caché dans le tronc, se fond en transparence : aucune arête visible.
+        fade = QLinearGradient(self._start, QPointF(self._start.x(), self._end.y()))
+        fade.setColorAt(0.0, with_alpha(bark, 0))
+        fade.setColorAt(0.32, with_alpha(bark, 235))
+        fade.setColorAt(1.0, with_alpha(bark, 205))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QBrush(fade))
         painter.drawPath(self._stroke)
         painter.setBrush(with_alpha(bark, 150))
         painter.drawPath(self._rootlet)
 
-        rect = self._label_rect()
+        name_start, beads_start = self._layout()
+        # Le nom, lettre à lettre le long de la racine, juste au-dessus d'elle.
         painter.setFont(self._font)
         painter.setPen(theme.color(theme.RED_TEXT if self._hover else theme.INK_SOFT))
-        align = Qt.AlignmentFlag.AlignVCenter | (
-            Qt.AlignmentFlag.AlignLeft if self._direction > 0 else Qt.AlignmentFlag.AlignRight
-        )
-        painter.drawText(QRectF(rect.x(), rect.y(), rect.width(), 44), align, self._name)
-        # Un point par récit (cinq au plus), un point vide si aucun.
-        dots = max(1, min(self._count, 5))
-        width = painter.fontMetrics().horizontalAdvance(self._name)
-        start = rect.x() + (0 if self._direction > 0 else rect.width() - width)
-        for i in range(dots):
-            paint_dot(painter, QPointF(start + 6 + i * 15, rect.y() + 52), 9, self._count > 0)
+        position = name_start
+        for letter in self._name:
+            advance = self._metrics.horizontalAdvance(letter)
+            point, angle = self._at(position + advance / 2)
+            painter.save()
+            painter.translate(point)
+            painter.rotate(angle)
+            painter.drawText(QPointF(-advance / 2, -8), letter)
+            painter.restore()
+            position += advance
+        # Les récits, en perles sur la racine.
+        for i in range(max(1, min(self._count, self.MAX_DOTS))):
+            point, _angle = self._at(beads_start + 7 + i * 14)
+            paint_dot(painter, point, 9, self._count > 0)
 
     def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         self._hover = True
@@ -496,14 +513,30 @@ class Root(QGraphicsObject):
 def root_ends(count: int) -> list[QPointF]:
     """Extrémités des racines, en éventail de part et d'autre du tronc."""
     slots = [
-        QPointF(700, 650),
-        QPointF(1000, 650),
-        QPointF(560, 724),
-        QPointF(1130, 724),
-        QPointF(770, 784),
-        QPointF(940, 790),
+        QPointF(500, 664),
+        QPointF(1200, 664),
+        QPointF(380, 748),
+        QPointF(1320, 748),
+        QPointF(620, 804),
+        QPointF(1090, 806),
     ]
     return slots[:count]
+
+
+def faded_trunk(pixmap: QPixmap, fade_from: float, fade_to: float) -> QPixmap:
+    """Copie de l'image dont le bas du tronc s'efface entre deux hauteurs (en pixels)."""
+    result = QPixmap(pixmap.size())
+    result.setDevicePixelRatio(pixmap.devicePixelRatio())
+    result.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(result)
+    painter.drawPixmap(0, 0, pixmap)
+    mask = QLinearGradient(0, fade_from, 0, fade_to)
+    mask.setColorAt(0.0, QColor(0, 0, 0, 255))
+    mask.setColorAt(1.0, QColor(0, 0, 0, 0))
+    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_DestinationIn)
+    painter.fillRect(result.rect(), QBrush(mask))
+    painter.end()
+    return result
 
 
 # Vue
@@ -554,18 +587,14 @@ class TreeScreen(QWidget):
 
         self._build_static()
         self.tags: dict[int, HerbariumTag] = {}
+        self._hangings: list[_Hanging] = []
         for spec in self._tag_specs():
-            tag = HerbariumTag(spec)
-            tag.activated.connect(self.section_requested)
-            self._scene.addItem(tag)
-            self.tags[spec.section] = tag
-            # Le fil passe devant l'étiquette, jusque dans l'œillet.
-            string = _StringItem(spec)
-            string.setZValue(1)
-            self._scene.addItem(string)
-            knot = Knot(spec.anchor)
-            knot.setZValue(2)
-            self._scene.addItem(knot)
+            hanging = _Hanging(spec)
+            hanging.tag.activated.connect(self.section_requested)
+            self._scene.addItem(hanging)
+            self._hangings.append(hanging)
+            self.tags[spec.section] = hanging.tag
+        self._appearing: QParallelAnimationGroup | None = None
         self.roots: list[Root] = []
         self._roots_extra: QGraphicsSimpleTextItem | None = None
         self._add_person: _ClickableText | None = None
@@ -574,9 +603,12 @@ class TreeScreen(QWidget):
     def _build_static(self) -> None:
         pixmap = QPixmap(str(theme.IMAGES / TREE_IMAGE))
         if not pixmap.isNull():
-            tree = QGraphicsPixmapItem(pixmap)
-            tree.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
             scale = min(TREE_RECT.width() / pixmap.width(), TREE_RECT.height() / pixmap.height())
+            # Le bas du tronc se fond dans le sol, où les racines prennent le relais.
+            fade_from = (GROUND_Y - 44 - TREE_RECT.top()) / scale
+            fade_to = (GROUND_Y - 4 - TREE_RECT.top()) / scale
+            tree = QGraphicsPixmapItem(faded_trunk(pixmap, fade_from, fade_to))
+            tree.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
             tree.setScale(scale)
             tree.setPos(TREE_RECT.topLeft())
             if theme.DARK_MODE:
@@ -658,6 +690,29 @@ class TreeScreen(QWidget):
             ),
         ]
 
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        self.appear()
+
+    def appear(self) -> None:
+        """Les étiquettes apparaissent en douceur, l'une après l'autre."""
+        if self._appearing is not None:
+            self._appearing.stop()
+        group = QParallelAnimationGroup(self)
+        for index, hanging in enumerate(self._hangings):
+            hanging.setOpacity(0.0)
+            step = QSequentialAnimationGroup(group)
+            step.addPause(90 * index)
+            fade = QPropertyAnimation(hanging, b"opacity", step)
+            fade.setDuration(520)
+            fade.setStartValue(0.0)
+            fade.setEndValue(1.0)
+            fade.setEasingCurve(QEasingCurve.Type.OutCubic)
+            step.addAnimation(fade)
+            group.addAnimation(step)
+        group.start()
+        self._appearing = group
+
     def refresh(self) -> None:
         overview = self._service.overview()
         name = overview.first_name
@@ -699,6 +754,7 @@ class TreeScreen(QWidget):
                 index,
             )
             root.activated.connect(self.person_opened)
+            root.setZValue(-0.5)  # sous l'arbre : le tronc recouvre le départ des racines
             self._scene.addItem(root)
             self.roots.append(root)
         if len(people) > MAX_ROOTS:
@@ -718,6 +774,34 @@ class TreeScreen(QWidget):
             hint.activated.connect(self.manage_people)
             self._scene.addItem(hint)
             self._add_person = hint
+
+
+class _Hanging(QGraphicsObject):
+    """Une étiquette avec son fil et son nœud : ils apparaissent ensemble."""
+
+    def __init__(self, spec: TagSpec) -> None:
+        super().__init__()
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemHasNoContents)
+        self.tag = HerbariumTag(spec)
+        self.tag.setParentItem(self)
+        # Le fil passe devant l'étiquette, jusque dans l'œillet.
+        string = _StringItem(spec)
+        string.setParentItem(self)
+        string.setZValue(1)
+        knot = Knot(spec.anchor)
+        knot.setParentItem(self)
+        knot.setZValue(2)
+
+    def boundingRect(self) -> QRectF:
+        return QRectF()
+
+    def paint(
+        self,
+        painter: QPainter,
+        option: QStyleOptionGraphicsItem,
+        widget: QWidget | None = None,
+    ) -> None:
+        pass
 
 
 class _StringItem(QGraphicsPathItem):
