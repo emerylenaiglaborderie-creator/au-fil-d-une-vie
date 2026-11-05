@@ -10,6 +10,7 @@ toucherait à rien d'autre.
 """
 
 import math
+import random
 from dataclasses import dataclass
 
 from PySide6.QtCore import (
@@ -87,34 +88,84 @@ def bezier(p0: QPointF, c1: QPointF, c2: QPointF, p3: QPointF, t: float) -> QPoi
     return p0 * (u**3) + c1 * (3 * u * u * t) + c2 * (3 * u * t * t) + p3 * (t**3)
 
 
-def tapered_stroke(
-    p0: QPointF, c1: QPointF, c2: QPointF, p3: QPointF, start_width: float, end_width: float
-) -> QPainterPath:
-    """Trait plein qui s'affine le long d'une courbe, comme une racine ou un pinceau."""
-    steps = 48
+def smooth_path(points: list[QPointF]) -> QPainterPath:
+    """Courbe lisse passant par tous les points (spline de Catmull-Rom)."""
+    path = QPainterPath(points[0])
+    padded = [points[0], *points, points[-1]]
+    for i in range(1, len(padded) - 2):
+        p0, p1, p2, p3 = padded[i - 1], padded[i], padded[i + 1], padded[i + 2]
+        path.cubicTo(p1 + (p2 - p0) / 6, p2 - (p3 - p1) / 6, p2)
+    return path
+
+
+def tapered_path(centre: QPainterPath, start_width: float, end_width: float) -> QPainterPath:
+    """Trait plein qui s'affine le long d'un chemin quelconque."""
+    steps = 90
+    total = centre.length()
     left: list[QPointF] = []
     right: list[QPointF] = []
     for i in range(steps + 1):
         t = i / steps
-        point = bezier(p0, c1, c2, p3, t)
-        ahead = bezier(p0, c1, c2, p3, min(1.0, t + 0.01))
-        behind = bezier(p0, c1, c2, p3, max(0.0, t - 0.01))
-        dx, dy = ahead.x() - behind.x(), ahead.y() - behind.y()
-        length = math.hypot(dx, dy) or 1.0
-        normal = QPointF(-dy / length, dx / length)
-        # Affinement rapide au départ puis plus lent : le profil d'une vraie racine.
+        percent = centre.percentAtLength(total * t)
+        point = centre.pointAtPercent(percent)
+        angle = math.radians(centre.angleAtPercent(percent))
+        normal = QPointF(
+            math.sin(angle), math.cos(angle)
+        )  # angle de Qt : sens trigonométrique, y vers le bas
         width = end_width + (start_width - end_width) * (1 - t) ** 1.6
         left.append(point + normal * (width / 2))
         right.append(point - normal * (width / 2))
     path = QPainterPath(left[0])
     for point in left[1:]:
         path.lineTo(point)
-    tip = p3
-    path.quadTo(tip, right[-1])
+    path.quadTo(centre.pointAtPercent(1.0), right[-1])
     for point in reversed(right[:-1]):
         path.lineTo(point)
     path.closeSubpath()
     return path
+
+
+def meandering_root(start: QPointF, end: QPointF, seed: int) -> QPainterPath:
+    """Racine qui serpente : des ondulations amples au milieu, apaisées vers la pointe.
+
+    Le tracé de base plonge sous le tronc puis s'étire vers l'extérieur ; des
+    décalages perpendiculaires, tirés au hasard mais avec une graine fixe, le font
+    onduler dans un sens puis dans l'autre.
+    """
+    rng = random.Random(seed)
+    d = 1 if end.x() >= start.x() else -1
+    drop = end.y() - start.y()
+    c1 = QPointF(start.x() + d * 6, start.y() + drop * 0.7)
+    c2 = QPointF(end.x() - d * abs(end.x() - start.x()) * 0.6, end.y() + 2)
+    points = [start]
+    side = rng.choice((-1, 1))
+    for t in (0.24, 0.4, 0.56, 0.72, 0.87):
+        base = bezier(start, c1, c2, end, t)
+        ahead = bezier(start, c1, c2, end, t + 0.01)
+        dx, dy = ahead.x() - base.x(), ahead.y() - base.y()
+        length = math.hypot(dx, dy) or 1.0
+        normal = QPointF(-dy / length, dx / length)
+        # Nulle à la sortie du tronc, ample au milieu, plus calme vers la pointe.
+        envelope = math.sin(math.pi * (t - 0.1) / 0.9) * (1.0 - 0.5 * t)
+        amplitude = rng.uniform(12, 26) * envelope
+        points.append(base + normal * (side * amplitude))
+        side = -side if rng.random() < 0.8 else side  # le plus souvent, elle change de sens
+    points.append(end)
+    return smooth_path(points)
+
+
+def rootlet(origin: QPointF, direction: int, seed: int) -> QPainterPath:
+    """Radicelle qui s'enroule un peu, vers le bas et vers l'extérieur."""
+    rng = random.Random(seed)
+    curl = rng.choice((-1, 1))
+    reach = rng.uniform(34, 56)
+    points = [
+        origin,
+        origin + QPointF(direction * reach * 0.35, reach * 0.35),
+        origin + QPointF(direction * reach * 0.7 + curl * 8, reach * 0.55),
+        origin + QPointF(direction * reach + curl * 14, reach * 0.5 + rng.uniform(-6, 10)),
+    ]
+    return smooth_path(points)
 
 
 def string_path(anchor: QPointF, eyelet: QPointF) -> QPainterPath:
@@ -395,17 +446,23 @@ class Root(QGraphicsObject):
         start = QPointF(
             TRUNK.x() + d * min(TRUNK_HALF_WIDTH - 3, 2 + (index // 2) * 3.5), TRUNK.y() - 56
         )
-        drop = end.y() - start.y()
-        c1 = QPointF(start.x() + d * 6, start.y() + drop * 0.7)
-        c2 = QPointF(end.x() - d * abs(end.x() - start.x()) * 0.6, end.y() + 2)
-        self._centre = QPainterPath(start)
-        self._centre.cubicTo(c1, c2, end)
-        self._stroke = tapered_stroke(start, c1, c2, end, 17 - index * 1.4, 1.8)
-        fork = bezier(start, c1, c2, end, 0.4)
-        tip = fork + QPointF(d * 34, 24 + (index % 2) * 10)
-        self._rootlet = tapered_stroke(
-            fork, fork + QPointF(d * 6, 12), tip - QPointF(d * 14, 2), tip, 3.0, 0.6
-        )
+        self._centre = meandering_root(start, end, seed=1904 + index)
+        self._stroke = tapered_path(self._centre, 17 - index * 1.4, 1.8)
+        # Deux radicelles, qui partent du premier tiers et du milieu de la racine.
+        self._rootlets = [
+            tapered_path(
+                rootlet(
+                    self._centre.pointAtPercent(
+                        self._centre.percentAtLength(self._centre.length() * at)
+                    ),
+                    d,
+                    seed=2000 + index * 10 + k,
+                ),
+                width,
+                0.5,
+            )
+            for k, (at, width) in enumerate(((0.3, 3.4), (0.55, 2.4)))
+        ]
         self._start, self._end = start, end
         # Le texte se lit toujours de gauche à droite : à gauche du tronc, on parcourt
         # la racine depuis sa pointe.
@@ -426,7 +483,11 @@ class Root(QGraphicsObject):
 
     def boundingRect(self) -> QRectF:
         return (
-            self._hit.boundingRect().united(self._stroke.boundingRect()).adjusted(-40, -50, 40, 20)
+            self._hit.boundingRect()
+            .united(self._stroke.boundingRect())
+            .united(self._rootlets[0].boundingRect())
+            .united(self._rootlets[1].boundingRect())
+            .adjusted(-40, -50, 40, 20)
         )
 
     def shape(self) -> QPainterPath:
@@ -464,7 +525,8 @@ class Root(QGraphicsObject):
         painter.setBrush(QBrush(fade))
         painter.drawPath(self._stroke)
         painter.setBrush(with_alpha(bark, 150))
-        painter.drawPath(self._rootlet)
+        for path in self._rootlets:
+            painter.drawPath(path)
 
         name_start, beads_start = self._layout()
         # Le nom, lettre à lettre le long de la racine, juste au-dessus d'elle.
