@@ -1,7 +1,12 @@
 import sqlite3
 from pathlib import Path
 
-from au_fil_d_une_vie.repositories import PersonRepository, ProfileRepository, ThemeRepository
+from au_fil_d_une_vie.repositories import (
+    PersonRepository,
+    ProfileRepository,
+    Repositories,
+    ThemeRepository,
+)
 from au_fil_d_une_vie.services.demo import load_demo
 from au_fil_d_une_vie.services.quest import QuestService
 from tests.conftest import Scene
@@ -12,7 +17,7 @@ def _service(conn: sqlite3.Connection) -> QuestService:
 
 
 def test_vue_d_ensemble_de_la_demo(conn: sqlite3.Connection, demo_path: Path) -> None:
-    load_demo(conn, demo_path)
+    load_demo(Repositories(conn), demo_path)
     vue = _service(conn).overview()
     assert vue.first_name == "Camille"
     assert vue.story_count == 6
@@ -28,7 +33,7 @@ def test_vue_d_ensemble_de_la_demo(conn: sqlite3.Connection, demo_path: Path) ->
 def test_la_prochaine_piste_vient_d_un_theme_inexplore(
     conn: sqlite3.Connection, demo_path: Path
 ) -> None:
-    load_demo(conn, demo_path)
+    load_demo(Repositories(conn), demo_path)
     piste = _service(conn).next_track()
     assert piste is not None
     assert piste.theme.label == "Musique"
@@ -36,7 +41,7 @@ def test_la_prochaine_piste_vient_d_un_theme_inexplore(
 
 
 def test_une_autre_piste(conn: sqlite3.Connection, demo_path: Path) -> None:
-    load_demo(conn, demo_path)
+    load_demo(Repositories(conn), demo_path)
     service = _service(conn)
     premiere = service.next_track()
     assert premiere is not None
@@ -62,7 +67,7 @@ def test_relances_propres_a_la_question_ou_generales(
 ) -> None:
     from au_fil_d_une_vie.services.quest import DEFAULT_FOLLOW_UPS
 
-    load_demo(conn, demo_path)
+    load_demo(Repositories(conn), demo_path)
     service = _service(conn)
     piste = service.next_track()
     assert piste is not None
@@ -78,7 +83,7 @@ def test_relances_propres_a_la_question_ou_generales(
 
 
 def test_d_autres_pistes_une_par_theme(conn: sqlite3.Connection, demo_path: Path) -> None:
-    load_demo(conn, demo_path)
+    load_demo(Repositories(conn), demo_path)
     service = _service(conn)
     actuelle = service.next_track()
     assert actuelle is not None

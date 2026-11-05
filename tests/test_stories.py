@@ -6,6 +6,7 @@ import pytest
 from au_fil_d_une_vie.repositories import (
     KeywordRepository,
     NoteRepository,
+    Repositories,
     StoryRepository,
     TranscriptRepository,
 )
@@ -17,7 +18,7 @@ from tests.test_keywords import AnalyseurSimple
 
 @pytest.fixture
 def ids(conn: sqlite3.Connection) -> dict[str, int]:
-    ids = list(load_demo(conn))
+    ids = list(load_demo(Repositories(conn)))
     return dict(zip(["ecole", "papi", "premier_jour", "plat", "travail", "etes"], ids, strict=True))
 
 

@@ -8,6 +8,7 @@ from au_fil_d_une_vie.models import StoryStatus
 from au_fil_d_une_vie.repositories import (
     KeywordRepository,
     PersonRepository,
+    Repositories,
     StoryRepository,
     ThemeRepository,
     TranscriptRepository,
@@ -84,7 +85,7 @@ class Suivi:
 
 def _file(base: Path, whisper: FauxWhisper, analyseur: bool = True) -> TranscriptionQueue:
     return TranscriptionQueue(
-        lambda: connect(base),
+        lambda: Repositories.open(base),
         base.parent / "audio",
         lambda: whisper,
         (lambda: AnalyseurSimple()) if analyseur else (lambda: None),

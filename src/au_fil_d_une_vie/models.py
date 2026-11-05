@@ -133,3 +133,38 @@ class StoryRow:
     theme_id: int
     theme_label: str
     text: str | None
+
+
+class SyncEntity(StrEnum):
+    """Type de donnée échangée avec le serveur familial."""
+
+    PERSON = "person"
+    THEME = "theme"
+    QUESTION = "question"
+    FOLLOW_UP = "follow_up"
+    STORY = "story"
+    TRANSCRIPT = "transcript"
+    NOTE = "note"
+    STORY_KEYWORDS = "story_keywords"
+
+
+class SyncOperation(StrEnum):
+    """Ce qu'il faut transmettre au serveur pour une donnée."""
+
+    UPSERT = "upsert"
+    DELETE = "delete"
+
+
+@dataclass(frozen=True, slots=True)
+class PendingChange:
+    """Modification locale pas encore envoyée au serveur familial.
+
+    `key` est l'UUID de la donnée, ou celui du récit pour le texte, la note et
+    les mots-clés validés. `revision` change à chaque nouvelle modification de la donnée.
+    """
+
+    revision: int
+    entity: SyncEntity
+    key: str
+    operation: SyncOperation
+    changed_at: datetime

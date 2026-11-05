@@ -2,7 +2,6 @@
 
 import json
 import re
-import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -46,14 +45,11 @@ def catalog_path(code: str | None = None) -> Path:
     return TRACKS_PATHS.get(code or language(), TRACKS_PATH)
 
 
-def seed_tracks(
-    target: sqlite3.Connection | ThemeRepository, path: Path = TRACKS_PATH
-) -> dict[str, int]:
+def seed_tracks(themes_repo: ThemeRepository, path: Path = TRACKS_PATH) -> dict[str, int]:
     """Ajoute les pistes, questions et relances si la base n'en a pas encore.
 
     Retourne l'identifiant de chaque question selon sa clé (utile au jeu de démo).
     """
-    themes_repo = target if isinstance(target, ThemeRepository) else ThemeRepository(target)
     data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     questions: dict[str, int] = {}
     if themes_repo.list_themes():

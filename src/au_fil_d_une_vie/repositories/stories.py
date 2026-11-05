@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from au_fil_d_une_vie.models import Consent, Story, StoryRow, StoryStatus
-from au_fil_d_une_vie.repositories.database import now_iso, parse_iso
+from au_fil_d_une_vie.repositories.database import new_uuid, now_iso, parse_iso
 
 
 def _to_story(row: sqlite3.Row) -> Story:
@@ -45,10 +45,10 @@ class StoryRepository:
         with self._conn:
             cursor = self._conn.execute(
                 """
-                INSERT INTO story (person_id, question_id, recorded_at, duration_s, audio_path)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO story (uuid, person_id, question_id, recorded_at, duration_s, audio_path)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (person_id, question_id, recorded, duration_s, audio_path.as_posix()),
+                (new_uuid(), person_id, question_id, recorded, duration_s, audio_path.as_posix()),
             )
             story_id = cursor.lastrowid or 0
             self._conn.execute(

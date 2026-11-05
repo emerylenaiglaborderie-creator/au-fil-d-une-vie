@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from au_fil_d_une_vie.repositories import KeywordRepository, StoryRepository
+from au_fil_d_une_vie.repositories import KeywordRepository, Repositories, StoryRepository
 from au_fil_d_une_vie.services.demo import load_demo
 from au_fil_d_une_vie.services.links import LinkService, compute_links, keyword_weights
 
@@ -45,7 +45,7 @@ def test_un_mot_rare_cree_un_lien_plus_fort_qu_un_mot_commun() -> None:
 @pytest.fixture
 def demo(conn: sqlite3.Connection, demo_path: Path) -> dict[str, int]:
     """Identifiants des six récits de démo, par mot repère."""
-    ids = list(load_demo(conn, demo_path))
+    ids = list(load_demo(Repositories(conn), demo_path))
     return dict(zip(["ecole", "papi", "premier_jour", "plat", "travail", "etes"], ids, strict=True))
 
 

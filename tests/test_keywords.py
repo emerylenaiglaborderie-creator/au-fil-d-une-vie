@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from au_fil_d_une_vie.repositories import KeywordRepository, TranscriptRepository
+from au_fil_d_une_vie.repositories import KeywordRepository, Repositories, TranscriptRepository
 from au_fil_d_une_vie.services.keywords import KeywordService, Term, rank_candidates, tf_idf
 from tests.conftest import Scene
 
@@ -139,7 +139,7 @@ def test_un_mot_vide_est_refuse(
 def test_suggestions_sur_le_jeu_de_demo(conn: sqlite3.Connection, demo_path: Path) -> None:
     from au_fil_d_une_vie.services.demo import load_demo
 
-    ids = list(load_demo(conn, demo_path))
+    ids = list(load_demo(Repositories(conn), demo_path))
     service = KeywordService(AnalyseurSimple(), TranscriptRepository(conn), KeywordRepository(conn))
     proposes = {m.keyword.lemma for m in service.suggest(ids[0])}
     assert "institutrice" in proposes

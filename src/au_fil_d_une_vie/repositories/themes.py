@@ -3,6 +3,7 @@
 import sqlite3
 
 from au_fil_d_une_vie.models import Question, Theme
+from au_fil_d_une_vie.repositories.database import new_uuid
 
 
 def _to_theme(row: sqlite3.Row) -> Theme:
@@ -22,16 +23,16 @@ class ThemeRepository:
     def add_theme(self, slug: str, label: str, position: int = 0) -> Theme:
         with self._conn:
             cursor = self._conn.execute(
-                "INSERT INTO theme (slug, label, position) VALUES (?, ?, ?)",
-                (slug, label, position),
+                "INSERT INTO theme (uuid, slug, label, position) VALUES (?, ?, ?, ?)",
+                (new_uuid(), slug, label, position),
             )
         return Theme(id=cursor.lastrowid or 0, slug=slug, label=label, position=position)
 
     def add_question(self, theme_id: int, text: str, position: int = 0) -> Question:
         with self._conn:
             cursor = self._conn.execute(
-                "INSERT INTO question (theme_id, text, position) VALUES (?, ?, ?)",
-                (theme_id, text, position),
+                "INSERT INTO question (uuid, theme_id, text, position) VALUES (?, ?, ?, ?)",
+                (new_uuid(), theme_id, text, position),
             )
         return Question(id=cursor.lastrowid or 0, theme_id=theme_id, text=text, position=position)
 
@@ -82,8 +83,8 @@ class ThemeRepository:
     def add_follow_up(self, question_id: int, text: str, position: int = 0) -> None:
         with self._conn:
             self._conn.execute(
-                "INSERT INTO follow_up (question_id, text, position) VALUES (?, ?, ?)",
-                (question_id, text, position),
+                "INSERT INTO follow_up (uuid, question_id, text, position) VALUES (?, ?, ?, ?)",
+                (new_uuid(), question_id, text, position),
             )
 
     def follow_ups_for(self, question_id: int) -> list[str]:

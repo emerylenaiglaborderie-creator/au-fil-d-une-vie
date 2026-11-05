@@ -2,14 +2,14 @@ import sqlite3
 
 import pytest
 
-from au_fil_d_une_vie.repositories import KeywordRepository, StoryRepository
+from au_fil_d_une_vie.repositories import KeywordRepository, Repositories, StoryRepository
 from au_fil_d_une_vie.services.demo import load_demo
 from au_fil_d_une_vie.services.graph import GraphService
 
 
 @pytest.fixture
 def ids(conn: sqlite3.Connection) -> dict[str, int]:
-    ids = list(load_demo(conn))
+    ids = list(load_demo(Repositories(conn)))
     return dict(zip(["ecole", "papi", "premier_jour", "plat", "travail", "etes"], ids, strict=True))
 
 

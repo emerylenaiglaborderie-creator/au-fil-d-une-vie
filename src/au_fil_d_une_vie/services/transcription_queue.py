@@ -1,6 +1,6 @@
 """File d'attente des transcriptions, traitée dans un thread à part.
 
-Le thread ouvre sa propre connexion SQLite (une connexion ne se partage pas entre
+Le thread ouvre ses propres repositories (une connexion ne se partage pas entre
 threads) et son propre moteur de transcription, chargé une seule fois.
 Les rappels (`on_progress`, `on_finished`, `on_failed`) sont appelés depuis ce
 thread : l'interface les relaie vers son propre thread (voir ui/bridge.py).
@@ -8,18 +8,12 @@ thread : l'interface les relaie vers son propre thread (voir ui/bridge.py).
 
 import logging
 import queue
-import sqlite3
 import threading
 from collections.abc import Callable
 from pathlib import Path
 
 from au_fil_d_une_vie.models import StoryStatus
-from au_fil_d_une_vie.repositories import (
-    KeywordRepository,
-    PersonRepository,
-    StoryRepository,
-    TranscriptRepository,
-)
+from au_fil_d_une_vie.repositories import Repositories
 from au_fil_d_une_vie.services.keywords import KeywordService, TextAnalyzer
 from au_fil_d_une_vie.services.transcription import Transcriber
 
@@ -35,12 +29,12 @@ _STOP = -1
 class TranscriptionQueue:
     def __init__(
         self,
-        connect: Callable[[], sqlite3.Connection],
+        open_repositories: Callable[[], Repositories],
         audio_dir: Path,
         transcriber_factory: Callable[[], Transcriber],
         analyzer_factory: Callable[[], TextAnalyzer | None] = lambda: None,
     ) -> None:
-        self._connect = connect
+        self._open_repositories = open_repositories
         self._audio_dir = audio_dir
         self._transcriber_factory = transcriber_factory
         self._analyzer_factory = analyzer_factory
@@ -65,13 +59,11 @@ class TranscriptionQueue:
 
     def resume_pending(self) -> list[int]:
         """Remet en file les récits pas encore transcrits (y compris ceux interrompus)."""
-        conn = self._connect()
+        repos = self._open_repositories()
         try:
-            ids = StoryRepository(conn).ids_with_status(
-                StoryStatus.RECORDED, StoryStatus.TRANSCRIBING
-            )
+            ids = repos.stories.ids_with_status(StoryStatus.RECORDED, StoryStatus.TRANSCRIBING)
         finally:
-            conn.close()
+            repos.close()
         for story_id in ids:
             self.enqueue(story_id)
         return ids
@@ -95,7 +87,7 @@ class TranscriptionQueue:
             self._thread.start()
 
     def _run(self) -> None:
-        conn = self._connect()
+        repos = self._open_repositories()
         transcriber: Transcriber | None = None
         analyzer: TextAnalyzer | None = None
         analyzer_loaded = False
@@ -114,10 +106,10 @@ class TranscriptionQueue:
                     if not analyzer_loaded:
                         analyzer = self._load_analyzer()
                         analyzer_loaded = True
-                    self._process(conn, transcriber, analyzer, story_id)
+                    self._process(repos, transcriber, analyzer, story_id)
                 except Exception as error:  # noqa: BLE001 (on signale, la file continue)
                     log.exception("Transcription du récit %s impossible", story_id)
-                    StoryRepository(conn).set_status(story_id, StoryStatus.RECORDED)
+                    repos.stories.set_status(story_id, StoryStatus.RECORDED)
                     if self.on_failed is not None:
                         self.on_failed(story_id, str(error) or type(error).__name__)
                 else:
@@ -127,7 +119,7 @@ class TranscriptionQueue:
                     with self._lock:
                         self._current = None
         finally:
-            conn.close()
+            repos.close()
 
     def _load_analyzer(self) -> TextAnalyzer | None:
         try:
@@ -138,31 +130,31 @@ class TranscriptionQueue:
 
     def _process(
         self,
-        conn: sqlite3.Connection,
+        repos: Repositories,
         transcriber: Transcriber,
         analyzer: TextAnalyzer | None,
         story_id: int,
     ) -> None:
-        stories = StoryRepository(conn)
+        stories = repos.stories
         story = stories.get(story_id)
         if story is None:
             return  # supprimé entre-temps
         stories.set_status(story_id, StoryStatus.TRANSCRIBING)
 
         # Les noms des proches aident à les écrire correctement dans le texte.
-        names = " ".join(p.display_name for p in PersonRepository(conn).list_all())
+        names = " ".join(p.display_name for p in repos.people.list_all())
 
         def progress(fraction: float) -> None:
             if self.on_progress is not None:
                 self.on_progress(story_id, fraction)
 
         result = transcriber.transcribe(self._audio_dir / story.audio_path, progress, names or None)
-        transcripts = TranscriptRepository(conn)
+        transcripts = repos.transcripts
         transcripts.save_raw(story_id, result.text, result.language)
         stories.set_status(story_id, StoryStatus.TRANSCRIBED)
 
         if analyzer is not None and result.text.strip():
             try:
-                KeywordService(analyzer, transcripts, KeywordRepository(conn)).suggest(story_id)
+                KeywordService(analyzer, transcripts, repos.keywords).suggest(story_id)
             except Exception:  # noqa: BLE001 (le texte est gardé même sans mots-clés)
                 log.exception("Mots-clés du récit %s non proposés", story_id)

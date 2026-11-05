@@ -6,6 +6,7 @@ ouvre la sienne avec `connect`.
 
 import re
 import sqlite3
+import uuid
 from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
@@ -59,6 +60,11 @@ def migrate(conn: sqlite3.Connection) -> None:
 def now_iso() -> str:
     """Horodatage courant en UTC, au format stocké dans la base."""
     return datetime.now(UTC).isoformat(timespec="seconds")
+
+
+def new_uuid() -> str:
+    """Identifiant universel d'une donnée synchronisée (UUID version 4, en texte)."""
+    return str(uuid.uuid4())
 
 
 def parse_iso(value: str) -> datetime:

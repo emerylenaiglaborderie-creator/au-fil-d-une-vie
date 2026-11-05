@@ -5,7 +5,7 @@ from au_fil_d_une_vie.services.tracks import seed_tracks
 
 
 def test_une_nouvelle_base_recoit_les_pistes(conn: sqlite3.Connection) -> None:
-    questions = seed_tracks(conn)
+    questions = seed_tracks(ThemeRepository(conn))
     themes = ThemeRepository(conn)
     assert [t.label for t in themes.list_themes()] == [
         "Enfance", "Rencontres", "Cuisine", "Métier", "Musique", "Fêtes",
@@ -15,8 +15,8 @@ def test_une_nouvelle_base_recoit_les_pistes(conn: sqlite3.Connection) -> None:
 
 
 def test_les_pistes_ne_sont_chargees_qu_une_fois(conn: sqlite3.Connection) -> None:
-    premieres = seed_tracks(conn)
-    secondes = seed_tracks(conn)
+    premieres = seed_tracks(ThemeRepository(conn))
+    secondes = seed_tracks(ThemeRepository(conn))
     assert premieres == secondes
     assert len(ThemeRepository(conn).list_themes()) == 6
 

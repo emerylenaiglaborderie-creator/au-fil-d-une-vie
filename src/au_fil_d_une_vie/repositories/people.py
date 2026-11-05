@@ -3,7 +3,7 @@
 import sqlite3
 
 from au_fil_d_une_vie.models import Person
-from au_fil_d_une_vie.repositories.database import now_iso, parse_iso
+from au_fil_d_une_vie.repositories.database import new_uuid, now_iso, parse_iso
 
 
 def _to_person(row: sqlite3.Row) -> Person:
@@ -22,8 +22,11 @@ class PersonRepository:
     def add(self, display_name: str, relationship: str) -> Person:
         with self._conn:
             cursor = self._conn.execute(
-                "INSERT INTO person (display_name, relationship, created_at) VALUES (?, ?, ?)",
-                (display_name, relationship, now_iso()),
+                """
+                INSERT INTO person (uuid, display_name, relationship, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (new_uuid(), display_name, relationship, now_iso()),
             )
         person = self.get(cursor.lastrowid or 0)
         assert person is not None

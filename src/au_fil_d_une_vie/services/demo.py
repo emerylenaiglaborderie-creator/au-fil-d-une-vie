@@ -1,19 +1,12 @@
 """Chargement du jeu de démonstration fictif (data/demo.json, embarqué dans le paquet)."""
 
 import json
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from au_fil_d_une_vie.models import StoryStatus
-from au_fil_d_une_vie.repositories import (
-    KeywordRepository,
-    PersonRepository,
-    ProfileRepository,
-    StoryRepository,
-    TranscriptRepository,
-)
+from au_fil_d_une_vie.repositories import Repositories
 from au_fil_d_une_vie.services.keywords import TextAnalyzer, lemma_of
 from au_fil_d_une_vie.services.tracks import seed_tracks
 
@@ -22,7 +15,7 @@ DEMO_CONSENT = "Consentement fictif (jeu de démonstration)."
 
 
 def load_demo(
-    conn: sqlite3.Connection, path: Path = DEMO_PATH, analyzer: TextAnalyzer | None = None
+    repos: Repositories, path: Path = DEMO_PATH, analyzer: TextAnalyzer | None = None
 ) -> dict[int, list[str]]:
     """Remplit une base vide avec le jeu de démo.
 
@@ -34,18 +27,17 @@ def load_demo(
     data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
 
     profile = data["profile"]
-    ProfileRepository(conn).save(profile["first_name"], under_15=profile["under_15"])
+    repos.profile.save(profile["first_name"], under_15=profile["under_15"])
 
-    people_repo = PersonRepository(conn)
     people = {
-        p["key"]: people_repo.add(p["display_name"], p["relationship"]).id for p in data["people"]
+        p["key"]: repos.people.add(p["display_name"], p["relationship"]).id for p in data["people"]
     }
 
-    questions = seed_tracks(conn)
+    questions = seed_tracks(repos.themes)
 
-    stories_repo = StoryRepository(conn)
-    transcripts_repo = TranscriptRepository(conn)
-    keywords_repo = KeywordRepository(conn)
+    stories_repo = repos.stories
+    transcripts_repo = repos.transcripts
+    keywords_repo = repos.keywords
     created: dict[int, list[str]] = {}
     for index, story in enumerate(data["stories"], start=1):
         record = stories_repo.create(

@@ -462,15 +462,15 @@ def test_creer_le_livre_depuis_la_fenetre(
 def neuve(qtbot: QtBot, tmp_path: Path, micro: FakeAudioInput) -> Iterator[MainWindow]:
     """Fenêtre sur une base neuve, comme au tout premier lancement."""
     from au_fil_d_une_vie.bootstrap import build_services
-    from au_fil_d_une_vie.repositories import connect
+    from au_fil_d_une_vie.repositories import Repositories
     from au_fil_d_une_vie.services.tracks import seed_tracks
 
     create_application([])
     db = tmp_path / "base.db"
-    conn = connect(db)
-    seed_tracks(conn)
+    repos = Repositories.open(db)
+    seed_tracks(repos.themes)
     services = build_services(
-        conn,
+        repos,
         db,
         tmp_path / "audio",
         lambda: micro,
@@ -642,13 +642,18 @@ def test_une_premiere_quete_en_anglais_recoit_les_pistes_en_anglais(
 ) -> None:
     from au_fil_d_une_vie import i18n
     from au_fil_d_une_vie.bootstrap import build_services
-    from au_fil_d_une_vie.repositories import connect
+    from au_fil_d_une_vie.repositories import Repositories
 
     create_application([])
     i18n.set_language("en")
     db = tmp_path / "base.db"
     services = build_services(
-        connect(db), db, tmp_path / "audio", lambda: micro, tmp_path / "m", tmp_path / "s.json"
+        Repositories.open(db),
+        db,
+        tmp_path / "audio",
+        lambda: micro,
+        tmp_path / "m",
+        tmp_path / "s.json",
     )
     fenetre = MainWindow(services)
     qtbot.addWidget(fenetre)
@@ -682,13 +687,18 @@ def test_aucun_francais_ne_reste_en_anglais(
 
     from au_fil_d_une_vie import i18n
     from au_fil_d_une_vie.bootstrap import build_services
-    from au_fil_d_une_vie.repositories import connect
+    from au_fil_d_une_vie.repositories import Repositories
 
     create_application([])
     i18n.set_language("en")
     db = tmp_path / "base.db"
     services = build_services(
-        connect(db), db, tmp_path / "audio", lambda: micro, tmp_path / "m", tmp_path / "s.json"
+        Repositories.open(db),
+        db,
+        tmp_path / "audio",
+        lambda: micro,
+        tmp_path / "m",
+        tmp_path / "s.json",
     )
     fenetre = MainWindow(services)
     qtbot.addWidget(fenetre)
