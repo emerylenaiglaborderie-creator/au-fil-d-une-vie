@@ -35,7 +35,7 @@ Principe de progression : **des points rouges sur un fil** (pistes explorées, l
 ## 3. Décisions prises
 
 ### 3.1 Produit et RGPD
-- **Tout reste local.** Pas de compte, pas de cloud, aucun envoi réseau (hors téléchargement initial explicite des modèles, refusable).
+- **Tout reste à la maison.** Pas de compte en ligne, pas de cloud, aucun envoi sur Internet (hors téléchargement initial explicite des modèles, refusable). Les seuls échanges réseau autorisés se font avec le **serveur familial** (boîtier Raspberry Pi) sur le réseau local, voir section 7.
 - Public mineur et voix de proches : la confidentialité est un argument central du projet.
 - **Consentement** : en France, le consentement numérique seul est valable dès 15 ans, en dessous un parent doit consentir. Le **proche interrogé** consent avant chaque enregistrement (case à cocher dans l'écran d'interview, trace conservée par enregistrement).
 - Possibilité de **masquer ou supprimer** un récit à tout moment.
@@ -161,7 +161,7 @@ Motif central, issu du **logo** (fil noir fin, points rouges, arbre, feuilles ve
 - **Séparateur** : fil avec boucle se terminant par un point rouge.
 - **Surlignage vert « marqueur »** sur les mots-clés dans le texte d'un récit.
 - **Lavis aquarelle** : fond décoratif sur plusieurs pages, créé dans la maquette avec un filtre SVG (`feTurbulence` + `feDisplacementMap`). **En Qt, le remplacer par un PNG pré-rendu.**
-- **Pied de page constant** : « Tout reste sur cet ordinateur. Rien n'est envoyé en ligne. »
+- **Pied de page constant** : « Tout reste à la maison. Rien n'est envoyé sur Internet. »
 - Points de progression : **point rouge plein = fait**, **point vide (contour) = à faire**.
 - Récit isolé (sans lien) dans le graphe : point **blanc à contour rouge** avec la mention « pas encore de lien ».
 
@@ -217,9 +217,81 @@ Motif central, issu du **logo** (fil noir fin, points rouges, arbre, feuilles ve
 
 ## 6. Base de données (décision du 3 novembre 2026)
 
+> Mise à jour du 5 novembre 2026 : SQLite reste la **base locale de chaque poste** (fonctionnement hors connexion). La base de référence de la famille est **PostgreSQL** sur le serveur familial. Voir section 7.
+
 - Module standard `sqlite3`, **sans ORM** : les repositories isolent déjà l'accès, et le SQL écrit à la main est un point évalué.
 - Schéma dans `schema.sql`, migrations suivies par `PRAGMA user_version`.
 - `PRAGMA foreign_keys = ON` et `ON DELETE CASCADE` : supprimer un récit efface transcription, mots-clés, consentement et note (droit à l'effacement).
 - Requêtes paramétrées uniquement.
 - Une connexion par thread (la transcription tourne hors du thread d'interface).
 - Bonus : FTS5 pour la recherche dans les récits. Le chiffrement éventuel porte sur les audios plutôt que sur la base (SQLCipher complique l'installation multi-OS).
+
+## 7. Serveur familial, boîtier et synchronisation (décision du 5 novembre 2026)
+
+Validé avec le professeur : partage des récits entre les ordinateurs de la famille, **boîtier Raspberry Pi** comme serveur familial, et application **utilisable hors connexion** avec synchronisation au retour sur le réseau.
+
+### 7.1 Architecture d'ensemble
+- **Client lourd** (PySide6) sur chaque poste : base **SQLite locale** complète, tout fonctionne sans serveur (enregistrement, transcription, mots-clés, graphe, livre).
+- **Serveur familial** : API REST **FastAPI** + **PostgreSQL** + dossier des audios, déployés par `docker compose` (même fichier sur Mac et sur le Pi, images ARM64).
+- PostgreSQL n'est jamais exposé sur le réseau : seule l'API l'est.
+- Rôles PostgreSQL séparés : `aufil_owner` (schéma, migrations), `aufil_api` (lecture et écriture des données uniquement), `aufil_backup` (lecture seule).
+- Arborescence : `src/au_fil_d_une_vie/` (client), `src/au_fil_server/` (serveur), `src/au_fil_shared/` (schémas d'échange communs).
+- Règle d'architecture inchangée des deux côtés : interface, puis services, puis repositories.
+
+### 7.2 Sécurité du réseau local
+- Découverte du serveur par mDNS (`zeroconf`), saisie manuelle de l'adresse en repli.
+- **Appairage** de chaque poste par code à 6 chiffres valable 5 minutes, échangé contre un jeton. Le serveur ne garde que l'empreinte du jeton, le client le range dans le trousseau du système (`keyring`). Révocation possible.
+- **HTTPS** avec certificat auto-signé généré au premier lancement, empreinte affichée à l'appairage puis épinglée par le client.
+
+### 7.3 Synchronisation
+- Identifiants globaux **UUID** sur toutes les données synchronisées (plus d'identifiant entier partagé entre machines).
+- Le serveur numérote chaque modification (séquence croissante). Le client récupère les changements depuis le dernier numéro connu (**pull**), puis envoie ses modifications en attente (**push**), chacune avec la version sur laquelle elle s'appuie.
+- Aucune confiance dans l'horloge des postes pour ordonner les modifications.
+- Suppressions transmises par **pierres tombales** (identifiant seul, sans contenu), purgées ensuite.
+- Règles de conflit par type de donnée :
+  - création de récit, consentement, audio : immuables, pas de conflit possible ;
+  - texte corrigé (« version livre ») : en cas de conflit, les deux versions sont conservées et l'utilisateur choisit ;
+  - mots-clés validés d'un récit : fusion des ensembles ;
+  - drapeaux (masqué, dans le livre), notes, pistes et questions : la dernière modification reçue par le serveur l'emporte ;
+  - suppression contre modification : **la suppression l'emporte** (droit à l'effacement) ;
+  - même proche créé sur deux postes : détection par nom, fusion proposée à l'utilisateur.
+- Données dérivées (poids IDF, liens, graphe) **non synchronisées** : recalculées localement à partir des mots-clés synchronisés.
+- Audios envoyés à part, reprenables, vérifiés par SHA-256.
+- Déclenchement : au lancement, à la détection du serveur, périodiquement et par un bouton « Synchroniser ». Toujours dans un `QThread`.
+
+### 7.4 Boîtier Raspberry Pi
+- **Grand boîtier ventilé** qui regroupe tout le matériel réseau de la famille :
+  - un Raspberry Pi 4 ou 5 (4 Go), **données sur SSD** (jamais PostgreSQL sur la carte microSD) ;
+  - un **module Wi-Fi émetteur** relié au Pi, qui diffuse le réseau du boîtier (`AuFil-Famille`), **verrouillé par une clé d'authentification** WPA3 ;
+  - un **switch** dont le Pi est l'entrée, et **7 ports Ethernet** en façade pour brancher des postes ou la box Internet.
+- Le Pi fait office de routeur et de pare-feu (`nftables`) pour le Wi-Fi et les ports Ethernet, et sert les adresses (DHCP).
+- Pour que brancher la box sur un des ports ne mélange pas les deux réseaux, le switch est **administrable (VLAN)** : un port de façade est réservé et repéré « box », isolé des autres et traité par le Pi comme sa sortie vers Internet.
+- Uniquement des blocs d'alimentation certifiés, aucun câblage secteur fait maison.
+- Raspberry Pi OS Lite 64 bits, démarrage automatique du serveur par `systemd`, SSH par clé (attention : les ports publiés par Docker contournent les règles du pare-feu de l'hôte, seul le port de l'API est publié).
+- Démon `aufil-box` en Python (`gpiozero`, `luma.oled`), testé sans matériel grâce à `MockFactory`. Il appelle l'API par des routes d'administration accessibles uniquement en local.
+- Boutons : **Associer** (code d'appairage sur l'écran), **Sauvegarder** (`pg_dump` et audios vers une clé USB, archive chiffrée par phrase de passe), **Éteindre** (appui long, arrêt propre).
+- Cinq LED rouges en façade, reprise du motif « points rouges sur un fil » pour l'état du boîtier.
+
+### 7.5 Niveaux de protection
+Le boîtier laisse à chaque famille le choix de son niveau de protection, selon ses usages. Un sélecteur à trois positions, **à l'intérieur du boîtier**, fixe le niveau. Le niveau actif s'affiche sur l'écran du boîtier et dans l'application.
+
+| Niveau | Box branchée sur le port « box » | API joignable depuis | Internet pour le Pi | Usage |
+|---|---|---|---|---|
+| **1. Confort** | Oui | Réseau de la maison, Wi-Fi et ports du boîtier | Mises à jour uniquement | Les postes restent sur leur Wi-Fi habituel et gardent Internet, synchronisation automatique |
+| **2. Filtré** | Oui | Wi-Fi et ports du boîtier uniquement | Mises à jour uniquement | On rejoint le réseau du boîtier (Wi-Fi ou câble) le temps de synchroniser |
+| **3. Hermétique** | Non | Wi-Fi et ports du boîtier uniquement | Aucun | Isolation totale, interviews chez un proche, mises à jour manuelles |
+
+- Dans tous les niveaux : HTTPS avec certificat épinglé, appairage par jeton, aucune connexion entrante depuis Internet, PostgreSQL jamais exposé.
+- Le sélecteur pilote les règles du pare-feu du Pi. Box débranchée : le boîtier passe de fait au niveau 3.
+- Niveau 1 : le réseau de la maison et celui du boîtier restent séparés par le Pi, la découverte mDNS ne les traverse pas. Il faut un relais mDNS sur le Pi (`avahi` en mode réflecteur) ou la saisie manuelle de l'adresse.
+- L'application fonctionne hors connexion quel que soit le niveau, la synchronisation reprend dès que le serveur est joignable.
+
+### 7.6 Ordre de réalisation
+1. Migration des identifiants vers UUID et colonnes de synchronisation dans SQLite.
+2. Serveur familial (PostgreSQL, API, appairage) sous Docker sur le Mac.
+3. Synchronisation client et serveur, avec scénarios de conflits testés.
+4. Déploiement sur le Pi et démarrage automatique.
+5. Boutons, LED et écran (`aufil-box`).
+6. Module Wi-Fi, switch et niveaux de protection.
+
+Les étapes 5 et 6 sont des bonus : le projet doit rester complet et défendable sans elles.
