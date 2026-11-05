@@ -28,6 +28,7 @@ from PySide6.QtGui import (
     QFocusEvent,
     QFont,
     QFontMetricsF,
+    QImage,
     QKeyEvent,
     QLinearGradient,
     QPainter,
@@ -66,7 +67,8 @@ from au_fil_d_une_vie.ui.widgets import icon_pixmap, paint_dot
 SCENE = QRectF(0, 0, 1360, 820)
 TREE_IMAGE = "arbre-accueil.png"
 TREE_RECT = QRectF(632, 22, 474, 632)  # l'image garde ses proportions dans ce cadre
-TRUNK = QPointF(850, 590)  # pied du tronc
+TRUNK = QPointF(856, 590)  # pied du tronc, mesuré dans l'image (voir trunk_span)
+TRUNK_HALF_WIDTH = 11.5
 GROUND_Y = 592
 MAX_ROOTS = 6
 
@@ -389,7 +391,10 @@ class Root(QGraphicsObject):
         self._hover = False
         d = 1 if end.x() >= TRUNK.x() else -1
         # Départ dans le tronc, au-dessus du sol : l'aquarelle recouvre la jonction.
-        start = QPointF(TRUNK.x() - 4 + d * (3 + (index // 2) * 4), TRUNK.y() - 56)
+        # Départs répartis dans la largeur du tronc, du centre vers les bords.
+        start = QPointF(
+            TRUNK.x() + d * min(TRUNK_HALF_WIDTH - 3, 2 + (index // 2) * 3.5), TRUNK.y() - 56
+        )
         drop = end.y() - start.y()
         c1 = QPointF(start.x() + d * 6, start.y() + drop * 0.7)
         c2 = QPointF(end.x() - d * abs(end.x() - start.x()) * 0.6, end.y() + 2)
@@ -521,6 +526,18 @@ def root_ends(count: int) -> list[QPointF]:
         QPointF(1090, 806),
     ]
     return slots[:count]
+
+
+def trunk_span(image_path: str, scene_y: float) -> tuple[float, float]:
+    """Bords gauche et droit du tronc dans la scène, à une hauteur donnée.
+
+    Sert à vérifier (dans les tests) que les racines partent bien du tronc.
+    """
+    image = QImage(image_path)
+    scale = min(TREE_RECT.width() / image.width(), TREE_RECT.height() / image.height())
+    row = int((scene_y - TREE_RECT.top()) / scale)
+    opaque = [x for x in range(image.width()) if image.pixelColor(x, row).alpha() > 60]
+    return TREE_RECT.left() + opaque[0] * scale, TREE_RECT.left() + opaque[-1] * scale
 
 
 def faded_trunk(pixmap: QPixmap, fade_from: float, fade_to: float) -> QPixmap:

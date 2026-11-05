@@ -158,6 +158,14 @@ def test_les_etiquettes_apparaissent_en_douceur(qtbot: QtBot, window: MainWindow
     qtbot.waitUntil(lambda: all(h.opacity() == 1.0 for h in suspendues), timeout=3000)
 
 
+def test_les_racines_partent_du_milieu_du_tronc() -> None:
+    from au_fil_d_une_vie.ui import theme
+    from au_fil_d_une_vie.ui.screens.tree import TREE_IMAGE, TRUNK, trunk_span
+
+    gauche, droite = trunk_span(str(theme.IMAGES / TREE_IMAGE), TRUNK.y() - 30)
+    assert abs((gauche + droite) / 2 - TRUNK.x()) < 2
+
+
 def test_les_racines_portent_les_proches(window: MainWindow) -> None:
     assert {r.name() for r in window.tree.roots} == {
         "Mamie Yvonne",
