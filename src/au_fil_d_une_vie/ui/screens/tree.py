@@ -1,8 +1,8 @@
 """Écran « Mon arbre » : l'accueil, point de départ de toutes les sections.
 
-Planche d'herbier : l'aquarelle de l'arbre (image du logo) en fond, et par-dessus,
-dessinés à l'encre, le sol, les racines portant le nom des proches, les fils et les
-étiquettes numérotées qui ouvrent chaque section.
+Planche d'herbier : l'aquarelle de l'arbre (image du logo) en fond, et par-dessus
+une ombre de sol, des racines effilées portant le nom des proches, des fils souples
+et les étiquettes numérotées qui ouvrent chaque section.
 
 Tout est placé dans une scène de taille fixe (`SCENE`), mise à l'échelle de la
 fenêtre. Le dessin est isolé ici : remplacer l'image par un arbre généré ne
@@ -10,7 +10,6 @@ toucherait à rien d'autre.
 """
 
 import math
-import random
 from dataclasses import dataclass
 
 from PySide6.QtCore import (
@@ -28,10 +27,12 @@ from PySide6.QtGui import (
     QFont,
     QFontMetricsF,
     QKeyEvent,
+    QLinearGradient,
     QPainter,
     QPainterPath,
     QPen,
     QPixmap,
+    QRadialGradient,
     QResizeEvent,
 )
 from PySide6.QtWidgets import (
@@ -61,33 +62,65 @@ from au_fil_d_une_vie.ui.widgets import icon_pixmap, paint_dot
 SCENE = QRectF(0, 0, 1360, 820)
 TREE_IMAGE = "arbre-accueil.png"
 TREE_RECT = QRectF(632, 22, 474, 632)  # l'image garde ses proportions dans ce cadre
-TRUNK = QPointF(850, 586)  # pied du tronc, sur la ligne de sol
-GROUND_Y = 588
+TRUNK = QPointF(850, 590)  # pied du tronc
+GROUND_Y = 592
 MAX_ROOTS = 6
-SEED = 1904  # même tracé d'encre à chaque lancement
 
 
-def _ink_line(start: QPointF, end: QPointF, rng: random.Random, wobble: float) -> list[QPointF]:
-    """Points d'un trait d'encre légèrement tremblé entre deux points."""
-    steps = max(2, int(math.dist((start.x(), start.y()), (end.x(), end.y())) / 14))
-    points = []
+def with_alpha(color: QColor, alpha: int) -> QColor:
+    result = QColor(color)
+    result.setAlpha(alpha)
+    return result
+
+
+# Courbes
+
+
+def bezier(p0: QPointF, c1: QPointF, c2: QPointF, p3: QPointF, t: float) -> QPointF:
+    u = 1 - t
+    return p0 * (u**3) + c1 * (3 * u * u * t) + c2 * (3 * u * t * t) + p3 * (t**3)
+
+
+def tapered_stroke(
+    p0: QPointF, c1: QPointF, c2: QPointF, p3: QPointF, start_width: float, end_width: float
+) -> QPainterPath:
+    """Trait plein qui s'affine le long d'une courbe, comme une racine ou un pinceau."""
+    steps = 48
+    left: list[QPointF] = []
+    right: list[QPointF] = []
     for i in range(steps + 1):
         t = i / steps
-        jitter = 0 if i in (0, steps) else rng.uniform(-wobble, wobble)
-        normal = QPointF(-(end.y() - start.y()), end.x() - start.x())
-        length = math.hypot(normal.x(), normal.y()) or 1
-        points.append(start + (end - start) * t + normal * (jitter / length))
-    return points
-
-
-def ink_polygon(corners: list[QPointF], seed: int, wobble: float = 0.7) -> QPainterPath:
-    """Contour fermé au trait tremblé, comme tracé à la plume."""
-    rng = random.Random(seed)
-    path = QPainterPath(corners[0])
-    for start, end in zip(corners, corners[1:] + corners[:1], strict=True):
-        for point in _ink_line(start, end, rng, wobble)[1:]:
-            path.lineTo(point)
+        point = bezier(p0, c1, c2, p3, t)
+        ahead = bezier(p0, c1, c2, p3, min(1.0, t + 0.01))
+        behind = bezier(p0, c1, c2, p3, max(0.0, t - 0.01))
+        dx, dy = ahead.x() - behind.x(), ahead.y() - behind.y()
+        length = math.hypot(dx, dy) or 1.0
+        normal = QPointF(-dy / length, dx / length)
+        # Affinement rapide au départ puis plus lent : le profil d'une vraie racine.
+        width = end_width + (start_width - end_width) * (1 - t) ** 1.6
+        left.append(point + normal * (width / 2))
+        right.append(point - normal * (width / 2))
+    path = QPainterPath(left[0])
+    for point in left[1:]:
+        path.lineTo(point)
+    tip = p3
+    path.quadTo(tip, right[-1])
+    for point in reversed(right[:-1]):
+        path.lineTo(point)
     path.closeSubpath()
+    return path
+
+
+def string_path(anchor: QPointF, eyelet: QPointF) -> QPainterPath:
+    """Fil souple qui pend du nœud à l'œillet : il s'affaisse selon sa longueur."""
+    length = math.dist((anchor.x(), anchor.y()), (eyelet.x(), eyelet.y()))
+    sag = QPointF(0, 0.16 * length)
+    path = QPainterPath(anchor)
+    path.cubicTo(
+        anchor + (eyelet - anchor) * 0.3 + sag,
+        eyelet - (eyelet - anchor) * 0.25 + sag * 0.6,
+        eyelet,
+    )
     return path
 
 
@@ -108,8 +141,24 @@ class TagSpec:
     red: bool = False
 
 
+def tag_outline(width: float, height: float, cut: float, top: float) -> QPainterPath:
+    """Étiquette aux deux coins supérieurs coupés, angles légèrement adoucis."""
+    left, right, bottom = -width / 2, width / 2, top + height
+    r = 4.0
+    path = QPainterPath(QPointF(left + cut, top))
+    path.lineTo(right - cut, top)
+    path.lineTo(right, top + cut)
+    path.lineTo(right, bottom - r)
+    path.quadTo(right, bottom, right - r, bottom)
+    path.lineTo(left + r, bottom)
+    path.quadTo(left, bottom, left, bottom - r)
+    path.lineTo(left, top + cut)
+    path.closeSubpath()
+    return path
+
+
 class HerbariumTag(QGraphicsObject):
-    """Étiquette numérotée, coins supérieurs coupés, œillet percé.
+    """Étiquette numérotée, coins supérieurs coupés, œillet cerclé.
 
     Elle se balance autour de son œillet au survol et au focus clavier, et
     s'active au clic, avec Entrée ou Espace.
@@ -118,10 +167,10 @@ class HerbariumTag(QGraphicsObject):
     activated = Signal(int)
 
     WIDTH = 252.0
-    HEIGHT = 148.0
-    CUT = 22.0
+    HEIGHT = 144.0
+    CUT = 18.0
     EYELET_Y = 20.0
-    SHADOW = QPointF(5, 6)
+    SHADOW = QPointF(4, 5)
 
     def __init__(self, spec: TagSpec) -> None:
         super().__init__()
@@ -136,18 +185,18 @@ class HerbariumTag(QGraphicsObject):
         self.setPos(spec.eyelet)
         self.setRotation(spec.angle)
         self._swing = QPropertyAnimation(self, b"rotation", self)
-        self._swing.setDuration(900)
-        self._swing.setEasingCurve(QEasingCurve.Type.OutSine)
+        self._swing.setDuration(1100)
+        self._swing.setEasingCurve(QEasingCurve.Type.InOutSine)
         a = spec.angle
-        for step, value in ((0.0, a), (0.25, a + 4), (0.5, a - 3), (0.75, a + 1.5), (1.0, a)):
+        for step, value in ((0.0, a), (0.22, a + 3.5), (0.5, a - 2.5), (0.78, a + 1), (1.0, a)):
             self._swing.setKeyValueAt(step, value)
-        self._outline = ink_polygon(self._corners(), seed=SEED + spec.number)
+        self._outline = tag_outline(self.WIDTH, self.HEIGHT, self.CUT, -self.EYELET_Y)
         self._title_font = self._fitted_title_font(spec.title)
 
     def _fitted_title_font(self, title: str) -> QFont:
-        """Titre manuscrit le plus grand possible (48 px au plus) qui tient sur une ligne."""
-        available = self.WIDTH - 40
-        for px in range(48, 31, -2):
+        """Titre manuscrit le plus grand possible (46 px au plus) qui tient sur une ligne."""
+        available = self.WIDTH - 44
+        for px in range(46, 31, -2):
             font = theme.font(theme.SCRIPT, px)
             if QFontMetricsF(font).horizontalAdvance(title) <= available:
                 return font
@@ -161,21 +210,10 @@ class HerbariumTag(QGraphicsObject):
     def subtitle(self) -> str:
         return self._subtitle
 
-    def _corners(self) -> list[QPointF]:
-        w, h, c = self.WIDTH, self.HEIGHT, self.CUT
-        left, top = -w / 2, -self.EYELET_Y
-        return [
-            QPointF(left + c, top),
-            QPointF(left + w - c, top),
-            QPointF(left + w, top + c),
-            QPointF(left + w, top + h),
-            QPointF(left, top + h),
-            QPointF(left, top + c),
-        ]
-
     def boundingRect(self) -> QRectF:
-        w, h = self.WIDTH, self.HEIGHT
-        return QRectF(-w / 2 - 4, -self.EYELET_Y - 4, w + 16, h + 16)
+        return self._outline.boundingRect().adjusted(
+            -3, -3, self.SHADOW.x() + 3, self.SHADOW.y() + 3
+        )
 
     def shape(self) -> QPainterPath:
         return self._outline
@@ -190,57 +228,49 @@ class HerbariumTag(QGraphicsObject):
         red = self.spec.red
         # Ombre pleine décalée, lavis vert.
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(theme.color(theme.WASH))
+        painter.setBrush(with_alpha(theme.color(theme.WASH), 230))
         painter.drawPath(self._outline.translated(self.SHADOW))
-        # Corps de l'étiquette, bord d'encre.
+        # Corps : papier et trait d'encre fin.
         ink = theme.color(theme.RED_SHADOW if red else theme.INK_SOFT)
+        border = QPen(with_alpha(ink, 200), 1.2)
+        border.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(border)
         painter.setBrush(theme.color(theme.RED if red else theme.PAPER))
-        painter.setPen(QPen(ink, 1.5))
         painter.drawPath(self._outline)
-        if red:  # couture pointillée blanche
-            seam = QPen(theme.color(theme.ON_RED), 1.2, Qt.PenStyle.DashLine)
+        if red:  # couture pointillée
+            seam = QPen(with_alpha(theme.color(theme.ON_RED), 170), 1.0)
+            seam.setDashPattern([3.0, 3.0])
+            seam.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
             painter.setPen(seam)
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            w, h = self.WIDTH - 16, self.HEIGHT - 16
-            painter.drawPath(
-                ink_polygon(
-                    [
-                        QPointF(-w / 2 + self.CUT - 4, -self.EYELET_Y + 8),
-                        QPointF(w / 2 - self.CUT + 4, -self.EYELET_Y + 8),
-                        QPointF(w / 2, -self.EYELET_Y + self.CUT + 4),
-                        QPointF(w / 2, -self.EYELET_Y + 8 + h),
-                        QPointF(-w / 2, -self.EYELET_Y + 8 + h),
-                        QPointF(-w / 2, -self.EYELET_Y + self.CUT + 4),
-                    ],
-                    seed=SEED,
-                    wobble=0.4,
-                )
-            )
-        # Œillet percé (le fil passe dedans).
-        painter.setPen(QPen(ink, 1.4))
+            inset = tag_outline(self.WIDTH - 14, self.HEIGHT - 14, self.CUT - 3, -self.EYELET_Y + 7)
+            painter.drawPath(inset)
+        # Œillet : un anneau, le papier percé au centre.
+        painter.setPen(QPen(with_alpha(ink, 210), 1.6))
         painter.setBrush(theme.color(theme.CREAM))
-        painter.drawEllipse(QPointF(0, 0), 5.5, 5.5)
+        painter.drawEllipse(QPointF(0, 0), 5.0, 5.0)
 
         text = theme.color(theme.ON_RED if red else theme.INK_SOFT)
-        soft = theme.color(theme.ON_RED if red else theme.MUTED)
+        soft = with_alpha(theme.color(theme.ON_RED if red else theme.MUTED), 220)
         left = -self.WIDTH / 2 + 22
         painter.setPen(soft)
-        painter.setFont(theme.font(theme.SANS, 12, QFont.Weight.Medium, spacing_em=0.18))
-        painter.drawText(QPointF(left, 30), _("N° {number}").format(number=self.spec.number))
+        painter.setFont(theme.font(theme.SANS, 11, QFont.Weight.Medium, spacing_em=0.12))
+        painter.drawText(QPointF(left, 28), _("N° {number}").format(number=self.spec.number))
         if red:
-            mic = icon_pixmap("mic", 18, theme.ON_RED)
-            painter.drawPixmap(QPointF(self.WIDTH / 2 - 40, 16), mic)
+            painter.drawPixmap(
+                QPointF(self.WIDTH / 2 - 40, 14), icon_pixmap("mic", 16, theme.ON_RED)
+            )
         painter.setPen(text)
         painter.setFont(self._title_font)
         painter.drawText(
-            QRectF(left - 4, 30, self.WIDTH - 36, 60),
+            QRectF(left - 2, 30, self.WIDTH - 40, 56),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             self.spec.title,
         )
         painter.setPen(soft)
         painter.setFont(theme.font(theme.SERIF, 15, italic=True))
         painter.drawText(
-            QRectF(left, 92, self.WIDTH - 40, 30),
+            QRectF(left, 88, self.WIDTH - 40, 28),
             Qt.TextFlag.TextSingleLine,
             self._subtitle,
         )
@@ -285,7 +315,7 @@ class HerbariumTag(QGraphicsObject):
 class Knot(QGraphicsItem):
     """Point rouge où le fil est noué sur le feuillage."""
 
-    def __init__(self, center: QPointF, diameter: float = 12) -> None:
+    def __init__(self, center: QPointF, diameter: float = 10) -> None:
         super().__init__()
         self._d = diameter
         self.setPos(center)
@@ -303,37 +333,16 @@ class Knot(QGraphicsItem):
         paint_dot(painter, QPointF(0, 0), self._d, True)
 
 
-def string_path(anchor: QPointF, eyelet: QPointF) -> QPainterPath:
-    """Fil qui pend du nœud à l'œillet, avec un léger affaissement."""
-    middle = (anchor + eyelet) / 2 + QPointF(0, 10)
-    path = QPainterPath(anchor)
-    path.quadTo(middle, eyelet)
-    return path
-
-
 # Sol et racines
 
 
 class Ground(QGraphicsItem):
-    """Ligne de sol à l'encre, avec ses petites hachures."""
+    """Sol suggéré : une ombre de lavis sous le tronc et un trait qui s'efface aux bords."""
 
-    def __init__(self, left: float, right: float, y: float) -> None:
-        super().__init__()
-        self._left, self._right, self._y = left, right, y
-        rng = random.Random(SEED)
-        self._line = QPainterPath()
-        points = _ink_line(QPointF(left, y), QPointF(right, y), rng, 1.2)
-        self._line.moveTo(points[0])
-        for point in points[1:]:
-            self._line.lineTo(point)
-        self._hatches = [
-            (x, rng.uniform(4, 9), rng.uniform(-0.5, -0.2))
-            for x in (left + 10 + i * rng.uniform(18, 30) for i in range(40))
-            if x < right - 10
-        ]
+    RX, RY = 330.0, 30.0
 
     def boundingRect(self) -> QRectF:
-        return QRectF(self._left - 4, self._y - 6, self._right - self._left + 8, 22)
+        return QRectF(TRUNK.x() - self.RX, GROUND_Y - self.RY, 2 * self.RX, 2 * self.RY)
 
     def paint(
         self,
@@ -342,17 +351,32 @@ class Ground(QGraphicsItem):
         widget: QWidget | None = None,
     ) -> None:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(QPen(theme.color(theme.INK_SOFT), 1.6))
-        painter.drawPath(self._line)
-        painter.setPen(QPen(theme.color(theme.INK_SOFT), 1.0))
-        for x, length, slope in self._hatches:
-            painter.drawLine(
-                QPointF(x, self._y + 3), QPointF(x + length * slope, self._y + 3 + length)
-            )
+        wash = theme.color(theme.WASH)
+        shadow = QRadialGradient(QPointF(TRUNK.x(), GROUND_Y), self.RX)
+        shadow.setColorAt(0.0, with_alpha(wash, 150))
+        shadow.setColorAt(0.6, with_alpha(wash, 60))
+        shadow.setColorAt(1.0, with_alpha(wash, 0))
+        painter.save()
+        painter.translate(TRUNK.x(), GROUND_Y)
+        painter.scale(1.0, self.RY / self.RX)
+        painter.translate(-TRUNK.x(), -GROUND_Y)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(shadow))
+        painter.drawEllipse(QPointF(TRUNK.x(), GROUND_Y), self.RX, self.RX)
+        painter.restore()
+        line = QLinearGradient(TRUNK.x() - self.RX, 0, TRUNK.x() + self.RX, 0)
+        ink = theme.color(theme.INK_SOFT)
+        line.setColorAt(0.0, with_alpha(ink, 0))
+        line.setColorAt(0.5, with_alpha(ink, 120))
+        line.setColorAt(1.0, with_alpha(ink, 0))
+        painter.setPen(QPen(QBrush(line), 1.1))
+        painter.drawLine(
+            QPointF(TRUNK.x() - self.RX, GROUND_Y), QPointF(TRUNK.x() + self.RX, GROUND_Y)
+        )
 
 
 class Root(QGraphicsObject):
-    """Racine à l'encre portant, à son extrémité, le nom d'un proche et ses récits."""
+    """Racine effilée portant, à son extrémité, le nom d'un proche et ses récits."""
 
     activated = Signal(int)
 
@@ -364,16 +388,24 @@ class Root(QGraphicsObject):
         self._name = name
         self._count = story_count
         self._hover = False
-        rng = random.Random(SEED + 100 + index)
-        bend = rng.uniform(0.25, 0.45)
-        direction = 1 if end.x() >= TRUNK.x() else -1
-        c1 = QPointF(TRUNK.x() + direction * 10, TRUNK.y() + (end.y() - TRUNK.y()) * 0.7)
-        c2 = QPointF(end.x() - (end.x() - TRUNK.x()) * bend, end.y() - 6)
-        self._path = QPainterPath(QPointF(TRUNK.x() + direction * 6, TRUNK.y()))
-        self._path.cubicTo(c1, c2, end)
         self._end = end
-        self._direction = direction
-        self._font = theme.font(theme.SCRIPT, 40)
+        self._direction = 1 if end.x() >= TRUNK.x() else -1
+        d = self._direction
+        start = QPointF(TRUNK.x() + d * (3 + index % 3), TRUNK.y() - 2)
+        drop = end.y() - start.y()
+        # Elle plonge d'abord, puis s'étire vers l'extérieur en s'affinant.
+        c1 = QPointF(start.x() + d * 8, start.y() + drop * 0.75)
+        c2 = QPointF(end.x() - d * abs(end.x() - start.x()) * 0.55, end.y() + 4)
+        self._stroke = tapered_stroke(start, c1, c2, end, 10 - index * 0.6, 1.8)
+        # Une radicelle, qui part du premier tiers de la racine.
+        fork = bezier(start, c1, c2, end, 0.42)
+        tip = fork + QPointF(d * 36, 26 + (index % 2) * 10)
+        self._rootlet = tapered_stroke(
+            fork, fork + QPointF(d * 6, 12), tip - QPointF(d * 14, 2), tip, 3.0, 0.6
+        )
+        self._gradient_end = end
+        self._start = start
+        self._font = theme.font(theme.SCRIPT, 38)
         self.setAcceptHoverEvents(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsFocusable)
@@ -384,11 +416,16 @@ class Root(QGraphicsObject):
 
     def _label_rect(self) -> QRectF:
         width = 260.0
-        x = self._end.x() + 10 if self._direction > 0 else self._end.x() - 10 - width
-        return QRectF(x, self._end.y() - 34, width, 70)
+        x = self._end.x() + 12 if self._direction > 0 else self._end.x() - 12 - width
+        return QRectF(x, self._end.y() - 30, width, 64)
 
     def boundingRect(self) -> QRectF:
-        return self._path.boundingRect().adjusted(-6, -6, 6, 6).united(self._label_rect())
+        return (
+            self._stroke.boundingRect()
+            .united(self._rootlet.boundingRect())
+            .united(self._label_rect())
+            .adjusted(-4, -4, 4, 4)
+        )
 
     def shape(self) -> QPainterPath:
         path = QPainterPath()
@@ -402,28 +439,29 @@ class Root(QGraphicsObject):
         widget: QWidget | None = None,
     ) -> None:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        ink = theme.color(theme.INK_SOFT)
-        for width, alpha in ((3.2, 255), (1.4, 160)):
-            pen = QPen(QColor(ink.red(), ink.green(), ink.blue(), alpha), width)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            painter.setPen(pen)
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawPath(self._path)
+        bark = theme.color(theme.BARK)
+        fade = QLinearGradient(self._start, self._gradient_end)
+        fade.setColorAt(0.0, with_alpha(bark, 240))
+        fade.setColorAt(1.0, with_alpha(bark, 200))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(fade))
+        painter.drawPath(self._stroke)
+        painter.setBrush(with_alpha(bark, 150))
+        painter.drawPath(self._rootlet)
+
         rect = self._label_rect()
         painter.setFont(self._font)
         painter.setPen(theme.color(theme.RED_TEXT if self._hover else theme.INK_SOFT))
         align = Qt.AlignmentFlag.AlignVCenter | (
             Qt.AlignmentFlag.AlignLeft if self._direction > 0 else Qt.AlignmentFlag.AlignRight
         )
-        text_rect = QRectF(rect.x(), rect.y(), rect.width(), 46)
-        painter.drawText(text_rect, align, self._name)
+        painter.drawText(QRectF(rect.x(), rect.y(), rect.width(), 44), align, self._name)
         # Un point par récit (cinq au plus), un point vide si aucun.
         dots = max(1, min(self._count, 5))
         width = painter.fontMetrics().horizontalAdvance(self._name)
         start = rect.x() + (0 if self._direction > 0 else rect.width() - width)
         for i in range(dots):
-            center = QPointF(start + 6 + i * 16, rect.y() + 54)
-            paint_dot(painter, center, 10, self._count > 0)
+            paint_dot(painter, QPointF(start + 6 + i * 15, rect.y() + 52), 9, self._count > 0)
 
     def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent) -> None:
         self._hover = True
@@ -456,14 +494,14 @@ class Root(QGraphicsObject):
 
 
 def root_ends(count: int) -> list[QPointF]:
-    """Extrémités des racines, réparties de part et d'autre du tronc, sous le sol."""
+    """Extrémités des racines, en éventail de part et d'autre du tronc."""
     slots = [
-        QPointF(640, 668),
-        QPointF(1060, 668),
-        QPointF(470, 742),
-        QPointF(1110, 742),
-        QPointF(760, 776),
-        QPointF(960, 790),
+        QPointF(700, 650),
+        QPointF(1000, 650),
+        QPointF(560, 724),
+        QPointF(1130, 724),
+        QPointF(770, 784),
+        QPointF(940, 790),
     ]
     return slots[:count]
 
@@ -544,7 +582,9 @@ class TreeScreen(QWidget):
             if theme.DARK_MODE:
                 tree.setOpacity(0.85)
             self._scene.addItem(tree)
-        self._scene.addItem(Ground(624, 1300, GROUND_Y))
+        ground = Ground()
+        ground.setZValue(-1)  # sous l'arbre
+        self._scene.addItem(ground)
 
         eyebrow = QGraphicsSimpleTextItem(_("Mon arbre").upper())
         eyebrow.setFont(theme.font(theme.SANS, 13, QFont.Weight.Medium, spacing_em=0.2))
@@ -685,7 +725,7 @@ class _StringItem(QGraphicsPathItem):
 
     def __init__(self, spec: TagSpec) -> None:
         super().__init__(string_path(spec.anchor, spec.eyelet))
-        pen = QPen(theme.color(theme.THREAD), 2.2)
+        pen = QPen(with_alpha(theme.color(theme.THREAD), 215), 1.4)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         self.setPen(pen)
 
