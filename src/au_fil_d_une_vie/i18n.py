@@ -63,6 +63,11 @@ def short_date(day: int, month: int, year: int) -> str:
     return f"{day} {months[month - 1]} {year}"
 
 
+def month_label(month: int, year: int) -> str:
+    """« oct. 2026 » ou « Oct 2026 » (repères de mois du graphe)."""
+    return f"{MONTHS_SHORT[_current][month - 1]} {year}"
+
+
 def long_date(day: int, month: int, year: int) -> str:
     months = MONTHS_LONG[_current]
     if _current == "en":

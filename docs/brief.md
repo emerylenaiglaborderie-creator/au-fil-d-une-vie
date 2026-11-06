@@ -60,7 +60,7 @@ Principe de progression : **des points rouges sur un fil** (pistes explorées, l
 | Transcription | **faster-whisper** (CTranslate2, CPU), modèle « small » par défaut, « base » en repli sur machine modeste |
 | Mots-clés | **spaCy** `fr_core_news_md` (lemmatisation, mots vides, entités PER et LOC) + **TF-IDF**, avec **validation par l'utilisateur** |
 | Liens entre récits | Mots-clés partagés **pondérés par leur rareté** (IDF) ou Jaccard, calculés en SQL / Python |
-| Graphe | **networkx** (`spring_layout`, composantes connexes, détection des récits isolés) |
+| Graphe | **Diagramme en arcs** : récits sur un fil chronologique, liens en arcs portant les mots partagés, palier compact au-delà de 15 récits (titres au survol, 3 liens forts par récit) ; **networkx** pour les composantes connexes |
 | Livre de famille | **ReportLab** (pur Python), index des mots-clés avec numéros de page via `SimpleIndex`, renvois « voir aussi » |
 | Tests | **pytest** (+ pytest-qt si Qt), lancés sur les 3 systèmes par la CI |
 | Qualité | ruff, mypy |

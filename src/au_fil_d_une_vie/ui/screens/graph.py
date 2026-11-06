@@ -1,9 +1,8 @@
 """Écran « Au fil des mots » : le graphe des liens entre les récits."""
 
 import math
-import random
 
-from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -13,16 +12,22 @@ from PySide6.QtGui import (
     QPainterPath,
     QPaintEvent,
     QPen,
-    QPixmap,
 )
-from PySide6.QtWidgets import QCheckBox, QFrame, QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QFrame,
+    QHBoxLayout,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 from au_fil_d_une_vie.i18n import _
-from au_fil_d_une_vie.services.graph import GraphService, GraphView, StoryNode
+from au_fil_d_une_vie.services.graph import Arc, Density, GraphService, GraphView, StoryNode
 from au_fil_d_une_vie.services.stories import StoryService
 from au_fil_d_une_vie.ui import theme
-from au_fil_d_une_vie.ui.ink import tapered_path
 from au_fil_d_une_vie.ui.screens.story import RelatedThread
+from au_fil_d_une_vie.ui.text import month_label, short_date
 from au_fil_d_une_vie.ui.widgets import (
     eyebrow,
     label,
@@ -32,29 +37,23 @@ from au_fil_d_une_vie.ui.widgets import (
     wash_shadow,
 )
 
-BOARD = QSize(780, 580)
-PLATE_WIDTH = 150
+BOARD_HEIGHT = 470
+MARGIN_X = 96  # place des titres du premier et du dernier récit, et de la fin du fil
+THREAD_FROM_BOTTOM = 150  # sous le fil : titres, proches, repères de mois
+TITLE_MAX_WIDTH = 160
+WORD_LABELS_MAX = 5  # étiquettes de mots : les liens les plus forts du focus seulement
 
 
-def flowing_thread(start: QPointF, end: QPointF, seed: int) -> QPainterPath:
-    """Fil souple entre deux points : un arc ou une légère vague, jamais une droite.
-
-    Les points de contrôle sont décalés de part et d'autre de la ligne droite ; la
-    graine (tirée des identifiants du lien) choisit la forme et le sens, pour que
-    chaque fil garde le même tracé d'un affichage à l'autre.
-    """
-    rng = random.Random(seed)
-    dx, dy = end.x() - start.x(), end.y() - start.y()
-    length = math.hypot(dx, dy) or 1.0
-    normal = QPointF(-dy / length, dx / length)
-    side = rng.choice((-1, 1))
-    wave = rng.random() < 0.45  # sinon un arc simple
-    # Une vague se compense en partie : elle demande plus d'ampleur qu'un arc.
-    bend = length * (rng.uniform(0.28, 0.36) if wave else rng.uniform(0.18, 0.26))
-    c1 = start + QPointF(dx, dy) * 0.3 + normal * (side * bend)
-    c2 = start + QPointF(dx, dy) * 0.72 + normal * (side * bend * (-0.55 if wave else 0.6))
+def arc_path(start: QPointF, end: QPointF, height: float) -> QPainterPath:
+    """Arc au-dessus du fil entre deux récits, presque en demi-cercle, de hauteur donnée."""
+    span = end.x() - start.x()
+    lift = height * 4 / 3  # contrôles d'une cubique dont le sommet atteint `height`
     path = QPainterPath(start)
-    path.cubicTo(c1, c2, end)
+    path.cubicTo(
+        QPointF(start.x() + span * 0.04, start.y() - lift),
+        QPointF(end.x() - span * 0.04, end.y() - lift),
+        end,
+    )
     return path
 
 
@@ -92,77 +91,37 @@ def two_lines(text: str, metrics: QFontMetrics, width: int) -> list[str]:
 
 
 class GraphBoard(QWidget):
-    """Plateau du graphe : arbre du logo en fond, fils, mots communs et récits."""
+    """Plateau du graphe : le fil, les récits en points rouges, les arcs et leurs mots.
+
+    Focus : les arcs du récit sélectionné ou survolé passent à l'encre, les autres
+    s'estompent. En palier compact, les titres n'apparaissent qu'au survol et seuls
+    les liens forts sont tracés, sauf ceux du récit en focus.
+    """
 
     story_selected = Signal(int)
     story_activated = Signal(int)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setFixedSize(BOARD)
+        self.setFixedHeight(BOARD_HEIGHT)
+        self.setMinimumWidth(700)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setMouseTracking(True)
         self.setAccessibleName(_("Graphe des liens entre les récits"))
         self._view: GraphView | None = None
         self._selected: int | None = None
         self._hovered: int | None = None
         self._show_words = True
-        self._tree = QPixmap(str(theme.IMAGES / "arbre-fond.png"))
-        self._plate_font = theme.font(theme.SERIF, 15, italic=True)
-        self._plate_font_bold = theme.font(theme.SERIF, 15, QFont.Weight.Medium, italic=True)
-        self._person_font = theme.font(theme.SANS, 13)
-        self._word_font = theme.font(theme.SANS, 14)
-        self._word_centers: dict[int, QPointF] = {}
+        self._title_font = theme.font(theme.SERIF, 14, italic=True)
+        self._title_font_bold = theme.font(theme.SERIF, 14, QFont.Weight.Medium, italic=True)
+        self._person_font = theme.font(theme.SANS, 12)
+        self._word_font = theme.font(theme.SANS, 13)
+        self._month_font = theme.font(theme.SANS, 11, QFont.Weight.Medium, spacing_em=0.14)
 
     def set_view(self, view: GraphView, selected: int | None) -> None:
         self._view = view
         self._selected = selected
-        self._word_centers = self._place_words()
         self.update()
-
-    def _word_rect(self, label_text: str, center: QPointF) -> QRectF:
-        width = QFontMetrics(self._word_font).horizontalAdvance(label_text) + 24
-        return QRectF(center.x() - width / 2, center.y() - 14, width, 28)
-
-    def _place_words(self) -> dict[int, QPointF]:
-        """Écarte les étiquettes de mots des plaques, des points et des autres étiquettes.
-
-        Quelques passes de répulsion simple : chaque étiquette qui chevauche un obstacle
-        est poussée à l'opposé de celui-ci, sans sortir du plateau.
-        """
-        if self._view is None:
-            return {}
-        obstacles = [self._plate_rect(s).adjusted(-4, -4, 4, 4) for s in self._view.stories]
-        obstacles += [
-            QRectF(self._point(s.x, s.y) - QPointF(16, 16), QSize(32, 32))
-            for s in self._view.stories
-        ]
-        centers = {w.keyword_id: self._point(w.x, w.y) for w in self._view.words}
-        labels = {w.keyword_id: w.label for w in self._view.words}
-        for _pass in range(60):
-            moved = False
-            for keyword_id, center in centers.items():
-                rect = self._word_rect(labels[keyword_id], center)
-                others = [
-                    self._word_rect(labels[k], c).adjusted(-4, -4, 4, 4)
-                    for k, c in centers.items()
-                    if k != keyword_id
-                ]
-                for obstacle in obstacles + others:
-                    if not rect.intersects(obstacle):
-                        continue
-                    away = center - obstacle.center()
-                    length = math.hypot(away.x(), away.y()) or 1.0
-                    center = center + QPointF(away.x() / length * 6, away.y() / length * 6)
-                    rect = self._word_rect(labels[keyword_id], center)
-                    moved = True
-                half = rect.width() / 2
-                centers[keyword_id] = QPointF(
-                    min(max(center.x(), half + 8), self.width() - half - 8),
-                    min(max(center.y(), 22), self.height() - 22),
-                )
-            if not moved:
-                break
-        return centers
 
     def set_selected(self, story_id: int | None) -> None:
         self._selected = story_id
@@ -174,27 +133,51 @@ class GraphBoard(QWidget):
 
     # Géométrie
 
-    def _point(self, x: float, y: float) -> QPointF:
-        return QPointF(x * self.width(), y * self.height())
+    def _thread_y(self) -> float:
+        return float(self.height() - THREAD_FROM_BOTTOM)
 
-    def _plate_rect(self, node: StoryNode) -> QRectF:
-        center = self._point(node.x, node.y)
-        height = self._plate_height(node)
-        left = min(max(center.x() - PLATE_WIDTH / 2, 6), self.width() - PLATE_WIDTH - 6)
-        return QRectF(left, center.y() + 16, PLATE_WIDTH, height)
+    def _x(self, position: float) -> float:
+        return MARGIN_X + position * (self.width() - 2 * MARGIN_X)
 
-    def _plate_height(self, node: StoryNode) -> float:
-        metrics = QFontMetrics(self._plate_font_bold)
-        lines = len(two_lines(node.question, metrics, PLATE_WIDTH - 16))
-        return 8 + lines * metrics.lineSpacing() + QFontMetrics(self._person_font).lineSpacing()
+    def dot_center(self, story_id: int) -> QPointF:
+        """Centre du point d'un récit sur le fil."""
+        assert self._view is not None
+        node = self._view.story(story_id)
+        assert node is not None
+        return QPointF(self._x(node.position), self._thread_y())
+
+    def _spacing(self) -> float:
+        count = len(self._view.stories) if self._view else 1
+        return (self.width() - 2 * MARGIN_X) / max(1, count - 1)
+
+    def _title_width(self) -> int:
+        return int(min(TITLE_MAX_WIDTH, max(70.0, self._spacing() - 10)))
+
+    def _title_rect(self, node: StoryNode, width: int) -> QRectF:
+        x = self._x(node.position)
+        left = min(max(x - width / 2, 4), self.width() - width - 4)
+        return QRectF(left, self._thread_y() + 20, width, 74)
+
+    def _arc_height(self, arc: Arc) -> float:
+        assert self._view is not None
+        a, b = self._view.story(arc.story_a), self._view.story(arc.story_b)
+        assert a is not None and b is not None
+        span = self._x(b.position) - self._x(a.position)
+        ceiling = self._thread_y() - 46  # les arcs restent sous le haut du plateau
+        return min(ceiling, 26 + span * 0.42)
+
+    def _focus(self) -> set[int]:
+        return {sid for sid in (self._selected, self._hovered) if sid is not None}
 
     def node_at(self, position: QPointF) -> int | None:
         if self._view is None:
             return None
-        for node in reversed(self._view.stories):
-            center = self._point(node.x, node.y)
-            near = math.dist((center.x(), center.y()), (position.x(), position.y())) <= 16
-            if near or self._plate_rect(node).contains(position):
+        full = self._view.density is Density.FULL
+        for node in self._view.stories:
+            center = QPointF(self._x(node.position), self._thread_y())
+            if math.dist((center.x(), center.y()), (position.x(), position.y())) <= 15:
+                return node.id
+            if full and self._title_rect(node, self._title_width()).contains(position):
                 return node.id
         return None
 
@@ -205,7 +188,7 @@ class GraphBoard(QWidget):
         self.setCursor(
             Qt.CursorShape.PointingHandCursor if over is not None else Qt.CursorShape.ArrowCursor
         )
-        if over != self._hovered:  # les fils du récit survolé ressortent
+        if over != self._hovered:
             self._hovered = over
             self.update()
 
@@ -213,9 +196,6 @@ class GraphBoard(QWidget):
         if self._hovered is not None:
             self._hovered = None
             self.update()
-
-    def _is_strong(self, story_id: int) -> bool:
-        return story_id in (self._selected, self._hovered)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         story_id = self.node_at(event.position())
@@ -235,143 +215,179 @@ class GraphBoard(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         frame = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        clip = QPainterPath()
-        clip.addRoundedRect(frame, 3, 3)
-        painter.fillPath(clip, theme.color(theme.PAPER))
-        painter.setClipPath(clip)
-        if not self._tree.isNull():
-            # L'arbre sans fil ni points : rien ne se confond avec les récits.
-            painter.setOpacity(theme.TREE_OPACITY)
-            width = 560
-            height = width * self._tree.height() / self._tree.width()
-            painter.drawPixmap(
-                QRectF((self.width() - width) / 2, 8, width, height),
-                self._tree,
-                QRectF(self._tree.rect()),
-            )
-            painter.setOpacity(1.0)
-        if self._view is not None:
-            if self._show_words:
-                self._paint_word_threads(painter)
-            else:
-                self._paint_story_threads(painter)
-            for node in self._view.stories:
-                self._paint_story(painter, node)
-            if self._show_words:
-                for word in self._view.words:
-                    center = self._word_centers.get(word.keyword_id, self._point(word.x, word.y))
-                    self._paint_word(painter, word.label, center)
-            self._paint_isolated_note(painter)
-        painter.setClipping(False)
         painter.setPen(QPen(theme.color(theme.INK_SOFT), 1.5))
-        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setBrush(theme.color(theme.PAPER))
         painter.drawRoundedRect(frame, 3, 3)
+        if self._view is None or not self._view.stories:
+            return
+        focus = self._focus()
+        self._paint_months(painter)
+        self._paint_thread(painter)
+        labels = self._paint_arcs(painter, focus)
+        for node in self._view.stories:
+            self._paint_story(painter, node, focus)
+        for rect, text in labels:
+            self._paint_word(painter, rect, text)
+        if self._view.density is Density.COMPACT:
+            for story_id in (self._selected, self._hovered):
+                focused = self._view.story(story_id) if story_id is not None else None
+                if focused is not None:
+                    self._paint_plate(painter, focused)
 
-    def _thread_color(self, strong: bool) -> QColor:
-        color = QColor(theme.THREAD if strong else theme.THREAD_SOFT)
-        color.setAlphaF(0.95 if strong else 0.45)
-        return color
-
-    def _paint_word_threads(self, painter: QPainter) -> None:
-        """Du récit vers chaque mot partagé : un trait de pinceau qui s'affine."""
-        assert self._view is not None
-        stories = {s.id: s for s in self._view.stories}
-        words = {w.keyword_id: w for w in self._view.words}
-        painter.setPen(Qt.PenStyle.NoPen)
-        for strong in (False, True):  # les fils du récit choisi ou survolé par-dessus
-            for story_id, keyword_id in self._view.word_edges:
-                if self._is_strong(story_id) != strong:
-                    continue
-                story = stories[story_id]
-                # Le fil arrive là où l'étiquette du mot est vraiment dessinée.
-                word_at = self._word_centers.get(
-                    keyword_id, self._point(words[keyword_id].x, words[keyword_id].y)
-                )
-                thread = flowing_thread(
-                    self._point(story.x, story.y), word_at, seed=story_id * 7919 + keyword_id
-                )
-                painter.setBrush(self._thread_color(strong))
-                painter.drawPath(tapered_path(thread, 4.2 if strong else 2.6, 1.0))
-
-    def _paint_story_threads(self, painter: QPainter) -> None:
-        """D'un récit à l'autre : plus le lien est fort, plus le fil est épais."""
-        assert self._view is not None
-        stories = {s.id: s for s in self._view.stories}
-        heaviest = max((link.weight for link in self._view.story_links), default=1.0)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        for strong in (False, True):
-            for link in self._view.story_links:
-                if (self._is_strong(link.story_a) or self._is_strong(link.story_b)) != strong:
-                    continue
-                a, b = stories.get(link.story_a), stories.get(link.story_b)
-                if a is None or b is None:
-                    continue
-                pen = QPen(self._thread_color(strong), 1.2 + 2.6 * link.weight / heaviest)
-                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-                painter.setPen(pen)
-                seed = min(link.story_a, link.story_b) * 7919 + max(link.story_a, link.story_b)
-                painter.drawPath(flowing_thread(self._point(a.x, a.y), self._point(b.x, b.y), seed))
-
-    def _paint_story(self, painter: QPainter, node: StoryNode) -> None:
-        center = self._point(node.x, node.y)
-        selected = node.id == self._selected
-        if selected:
-            halo = QColor(theme.RED)
-            halo.setAlphaF(0.2)
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(halo)
-            painter.drawEllipse(center, 20, 20)
-        paint_dot(painter, center, 26 if selected else 18, filled=node.linked)
-
-        rect = self._plate_rect(node)
-        plate = QColor(theme.PAPER)
-        plate.setAlphaF(0.92)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(plate)
-        painter.drawRoundedRect(rect, 3, 3)
-        painter.setPen(theme.color(theme.INK))
-        painter.setFont(self._plate_font_bold if selected else self._plate_font)
-        person_height = QFontMetrics(self._person_font).lineSpacing()
-        text_rect = rect.adjusted(8, 4, -8, -person_height - 4)
-        lines = two_lines(node.question, QFontMetrics(painter.font()), int(text_rect.width()))
-        painter.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter, "\n".join(lines))
-        painter.setFont(self._person_font)
-        painter.setPen(theme.color(theme.MUTED))
-        painter.drawText(
-            QRectF(rect.left(), rect.bottom() - person_height - 3, rect.width(), person_height),
-            Qt.AlignmentFlag.AlignHCenter,
-            node.person_name,
+    def _paint_thread(self, painter: QPainter) -> None:
+        """Le fil : un trait d'encre fin, terminé par une petite boucle et un point rouge."""
+        y = self._thread_y()
+        left, right = MARGIN_X - 40, self.width() - 30.0
+        thread = QPainterPath(QPointF(left, y))
+        thread.lineTo(right - 18, y)
+        thread.cubicTo(
+            QPointF(right + 2, y - 2), QPointF(right - 2, y - 16), QPointF(right - 10, y - 9)
         )
+        thread.cubicTo(QPointF(right - 16, y - 3), QPointF(right - 6, y + 4), QPointF(right + 8, y))
+        pen = QPen(theme.color(theme.THREAD), 1.6)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawPath(thread)
+        paint_dot(painter, QPointF(right + 12, y), 8, True)
 
-    def _paint_word(self, painter: QPainter, text: str, center: QPointF) -> None:
+    def _paint_arcs(self, painter: QPainter, focus: set[int]) -> list[tuple[QRectF, str]]:
+        """Trace les arcs ; renvoie les étiquettes de mots à poser par-dessus."""
+        assert self._view is not None
+        arcs = self._view.visible_arcs(focus)
+        heaviest = max((a.weight for a in self._view.arcs), default=1.0)
+        full = self._view.density is Density.FULL
+        labels: list[tuple[QRectF, str]] = []
+        taken: list[QRectF] = []
+        # Mots affichés : sur les liens les plus forts du focus (ou sur tous, sans focus).
+        focused_arcs = [a for a in arcs if any(a.touches(f) for f in focus)]
+        if not self._show_words:
+            labelled: set[int] = set()
+        elif focus:
+            labelled = {id(a) for a in focused_arcs[:WORD_LABELS_MAX]}
+        else:
+            labelled = {id(a) for a in arcs} if full else set()
+        # Hors focus, les arcs s'effacent d'autant plus que le fil est chargé.
+        faded = 0.2 if full else 0.1
+        resting = 0.45 if full else 0.28
+        # Les arcs du focus par-dessus les autres.
+        for arc in sorted(arcs, key=lambda a: (any(a.touches(f) for f in focus), a.weight)):
+            focused = any(arc.touches(f) for f in focus)
+            color = QColor(theme.THREAD if focused else theme.THREAD_SOFT)
+            color.setAlphaF(0.95 if focused else (faded if focus else resting))
+            pen = QPen(color, (1.4 if focused else 1.0) + 2.6 * arc.weight / heaviest)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            start = self.dot_center(arc.story_a)
+            end = self.dot_center(arc.story_b)
+            path = arc_path(start, end, self._arc_height(arc))
+            painter.drawPath(path)
+            if id(arc) in labelled:
+                text = self._words_text(arc)
+                rect = self._word_rect(text, path.pointAtPercent(0.5))
+                while any(rect.intersects(t) for t in taken) and rect.top() > 8:
+                    rect.translate(0, -24)  # étiquettes empilées sans se chevaucher
+                taken.append(rect.adjusted(-4, -2, 4, 2))
+                labels.append((rect, text))
+        return labels
+
+    @staticmethod
+    def _words_text(arc: Arc) -> str:
+        shown = arc.words[:2]
+        more = len(arc.words) - len(shown)
+        return " · ".join(shown) + (f" +{more}" if more else "")
+
+    def _word_rect(self, text: str, center: QPointF) -> QRectF:
+        width = QFontMetrics(self._word_font).horizontalAdvance(text) + 22
+        left = min(max(center.x() - width / 2, 6), self.width() - width - 6)
+        return QRectF(left, center.y() - 13, width, 26)
+
+    def _paint_word(self, painter: QPainter, rect: QRectF, text: str) -> None:
         """Étiquette feuille du style herbier : ombre pleine décalée, bord fin."""
-        rect = self._word_rect(text, center)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(theme.color(theme.WASH))
-        painter.drawPath(_leaf_path(rect.translated(3, 3)))
+        painter.drawPath(_leaf_path(rect.translated(3, 3), 12, 2))
         border = QColor(theme.LEAF_TEXT_SOFT)
         border.setAlphaF(0.55)
         painter.setPen(QPen(border, 1.0))
         painter.setBrush(theme.color(theme.WORD_GREEN))
-        painter.drawPath(_leaf_path(rect))
+        painter.drawPath(_leaf_path(rect, 12, 2))
         painter.setFont(self._word_font)
         painter.setPen(theme.color(theme.LEAF_TEXT))
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
-    def _paint_isolated_note(self, painter: QPainter) -> None:
-        assert self._view is not None
-        alone = [s for s in self._view.stories if not s.linked]
-        if not alone:
+    def _paint_story(self, painter: QPainter, node: StoryNode, focus: set[int]) -> None:
+        center = QPointF(self._x(node.position), self._thread_y())
+        selected = node.id == self._selected
+        if selected:
+            halo = QColor(theme.RED)
+            halo.setAlphaF(0.18)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(halo)
+            painter.drawEllipse(center, 19, 19)
+        compact = self._view is not None and self._view.density is Density.COMPACT
+        size = 24 if selected else (14 if compact else 18)
+        paint_dot(painter, center, size, filled=node.linked)
+        if compact:
             return
-        lowest = max(alone, key=lambda s: s.y)
-        rect = self._plate_rect(lowest)
-        painter.setFont(theme.font(theme.SCRIPT, 30))
-        painter.setPen(theme.color(theme.CHIP_OUTLINE_TEXT))
+        width = self._title_width()
+        rect = self._title_rect(node, width)
+        painter.setFont(self._title_font_bold if selected else self._title_font)
+        painter.setPen(theme.color(theme.INK if selected or not focus else theme.MUTED))
+        lines = two_lines(node.question, QFontMetrics(painter.font()), width)
         painter.drawText(
-            QRectF(rect.left() - 20, rect.bottom() + 2, rect.width() + 40, 34),
+            QRectF(rect.left(), rect.top(), rect.width(), 40),
             Qt.AlignmentFlag.AlignHCenter,
-            _("pas encore de lien"),
+            "\n".join(lines),
         )
+        painter.setFont(self._person_font)
+        painter.setPen(theme.color(theme.MUTED))
+        painter.drawText(
+            QRectF(rect.left(), rect.top() + 42, rect.width(), 18),
+            Qt.AlignmentFlag.AlignHCenter,
+            node.person_name,
+        )
+
+    def _paint_plate(self, painter: QPainter, node: StoryNode) -> None:
+        """Palier compact : le titre du récit en focus, sur une petite plaque de papier."""
+        width = 230
+        rect = self._title_rect(node, width).adjusted(0, -2, 0, -6)
+        painter.setPen(QPen(theme.color(theme.INK_SOFT), 1.2))
+        painter.setBrush(theme.color(theme.PAPER))
+        painter.drawRoundedRect(rect, 3, 3)
+        inner = rect.adjusted(10, 6, -10, -6)
+        painter.setFont(self._title_font_bold)
+        painter.setPen(theme.color(theme.INK))
+        lines = two_lines(node.question, QFontMetrics(painter.font()), int(inner.width()))
+        painter.drawText(inner, Qt.AlignmentFlag.AlignHCenter, "\n".join(lines))
+        painter.setFont(self._person_font)
+        painter.setPen(theme.color(theme.MUTED))
+        painter.drawText(
+            QRectF(inner.left(), inner.bottom() - 16, inner.width(), 16),
+            Qt.AlignmentFlag.AlignHCenter,
+            f"{node.person_name} · {short_date(node.recorded_at)}",
+        )
+
+    def _paint_months(self, painter: QPainter) -> None:
+        """Repères de mois : un trait pointillé qui traverse le fil, le mois en dessous."""
+        assert self._view is not None
+        y = self._thread_y()
+        half = self._spacing() / 2 if len(self._view.stories) > 1 else 0
+        pen = QPen(theme.color(theme.DOTS), 1.0)
+        pen.setDashPattern([2.0, 3.0])
+        for index, mark in enumerate(self._view.months):
+            x = self._x(mark.position) - (half if index else 0)
+            if index:
+                painter.setPen(pen)
+                painter.drawLine(QPointF(x, y - 16), QPointF(x, self.height() - 34))
+            painter.setFont(self._month_font)
+            painter.setPen(theme.color(theme.LEAF_TEXT))
+            painter.drawText(
+                QRectF(x + (6 if index else -MARGIN_X + 20), self.height() - 30, 160, 18),
+                Qt.AlignmentFlag.AlignLeft,
+                month_label(mark.month).upper(),
+            )
 
 
 class GraphScreen(QWidget):
@@ -405,16 +421,14 @@ class GraphScreen(QWidget):
         head.addWidget(self._words, 0, Qt.AlignmentFlag.AlignBottom)
         root.addLayout(head)
 
-        body = QHBoxLayout()
-        body.setSpacing(40)
-        board_box = QVBoxLayout()
+        # Le fil prend toute la largeur ; la fiche du récit choisi et la légende dessous.
         self._board = GraphBoard()
         wash_shadow(self._board)
         self._board.story_selected.connect(self.select)
         self._board.story_activated.connect(self.story_opened)
-        board_box.addWidget(self._board)
+        root.addWidget(self._board)
         self._summary = label("", px=15, color=theme.MUTED)
-        board_box.addWidget(self._summary)
+        root.addWidget(self._summary)
         self._empty = label(
             _("Le graphe apparaîtra quand tu auras recueilli et relié quelques récits."),
             theme.SERIF,
@@ -423,22 +437,19 @@ class GraphScreen(QWidget):
             italic=True,
             wrap=True,
         )
-        board_box.addWidget(self._empty)
-        board_box.addStretch(1)
-        body.addLayout(board_box)
+        root.addWidget(self._empty)
 
-        aside = QVBoxLayout()
-        aside.setSpacing(32)
-        aside.setContentsMargins(0, 4, 0, 0)
-        aside.addWidget(self._build_card())
-        aside.addLayout(self._build_legend())
-        aside.addStretch(1)
-        aside_box = QWidget()
-        aside_box.setLayout(aside)
-        aside_box.setFixedWidth(380)
-        body.addWidget(aside_box, 0, Qt.AlignmentFlag.AlignTop)
-        body.addStretch(1)
-        root.addLayout(body)
+        below = QHBoxLayout()
+        below.setSpacing(48)
+        card = self._build_card()
+        card.setMaximumWidth(640)
+        below.addWidget(card, 1, Qt.AlignmentFlag.AlignTop)
+        legend_box = QWidget()
+        legend_box.setLayout(self._build_legend())
+        legend_box.setFixedWidth(380)
+        below.addWidget(legend_box, 0, Qt.AlignmentFlag.AlignTop)
+        below.addStretch(1)
+        root.addLayout(below)
         root.addStretch(1)
 
     def _build_card(self) -> QFrame:
@@ -476,15 +487,15 @@ class GraphScreen(QWidget):
         legend.setSpacing(12)
         legend.addWidget(section_title(_("Légende")))
         for kind, text in (
-            ("story", _("Un récit")),
+            ("story", _("Un récit, dans l'ordre où tu l'as recueilli")),
             ("alone", _("Un récit sans lien pour l'instant")),
-            ("word", _("Un mot qu'on retrouve ailleurs")),
-            ("thread", _("Un fil entre un récit et un mot")),
+            ("thread", _("Un lien : plus il est épais, plus les mots sont rares")),
+            ("word", _("Les mots que les deux récits partagent")),
         ):
             row = QHBoxLayout()
             row.setSpacing(14)
             row.addWidget(LegendMark(kind))
-            row.addWidget(label(text, px=16), 1)
+            row.addWidget(label(text, px=16, wrap=True), 1)
             legend.addLayout(row)
         return legend
 
@@ -501,11 +512,18 @@ class GraphScreen(QWidget):
         self._card.setVisible(has_stories)
         self._empty.setVisible(not has_stories)
         linked = sum(1 for s in self._view.stories if s.linked)
+        words = len({word for arc in self._view.arcs for word in arc.words})
+        hint = (
+            _("Passe sur un récit pour lire son titre et voir tous ses liens.")
+            if self._view.density is Density.COMPACT
+            else _("Double-clique sur un récit pour l'ouvrir.")
+        )
         self._summary.setText(
-            _(
-                "{stories} récits, {linked} reliés par {words} mots communs. "
-                "Double-clique sur un récit pour l'ouvrir."
-            ).format(stories=len(self._view.stories), linked=linked, words=len(self._view.words))
+            _("{stories} récits, {linked} reliés par {words} mots communs.").format(
+                stories=len(self._view.stories), linked=linked, words=words
+            )
+            + " "
+            + hint
             if has_stories
             else ""
         )
@@ -555,6 +573,6 @@ class LegendMark(QWidget):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(theme.color(theme.WORD_GREEN))
             painter.drawPath(_leaf_path(QRectF(0, 2, 28, 16), 12, 2))
-        else:
+        else:  # un petit arc, comme dans le graphe
             painter.setPen(QPen(theme.color(theme.THREAD), 2))
-            painter.drawLine(QPointF(0, 10), QPointF(28, 10))
+            painter.drawPath(arc_path(QPointF(2, 17), QPointF(26, 17), 12))

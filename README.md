@@ -29,7 +29,7 @@ Projet de BTS SIO option SLAM.
 | Écrans « Ma quête » et « Interview » (enregistrement audio) | fait |
 | Transcription locale (faster-whisper) et mots-clés proposés | fait |
 | Récits (fil, recherche, filtres) et Fiche récit (écoute, correction, mots-clés, carnet, masquer, supprimer) | fait |
-| Graphe des liens (récits et mots communs, networkx) | fait |
+| Graphe des liens (fil chronologique, arcs et mots communs) | fait |
 | Premier lancement (prénom, accord parental sous 15 ans) et gestion des proches | fait |
 | Paramètres : prénom, thème Jour / Nuit / comme l'ordinateur ; icône de l'application | fait |
 | Pistes personnalisables : créer, renommer, réordonner, supprimer pistes et questions | fait |
@@ -49,7 +49,7 @@ Projet de BTS SIO option SLAM.
 | Traduction | module `i18n` maison (principe de gettext) | Interface en français et en anglais, catalogue vérifié par les tests |
 | Mots-clés | **TF-IDF** écrit en Python | Proposition des mots les plus caractéristiques, validés par l'utilisateur |
 | Liens | Mots partagés pondérés par leur **rareté** (IDF) | Force du lien entre deux récits, « Voir aussi » |
-| Graphe | **networkx** (`spring_layout`, composantes connexes) | Placement des récits et des mots communs |
+| Graphe | Diagramme en arcs (QPainter), **networkx** pour les composantes connexes | Récits sur un fil chronologique, liens en arcs, palier compact au-delà de 15 récits |
 | Livre de famille | **ReportLab** (`multiBuild`, `TableOfContents`, `SimpleIndex`) | PDF avec sommaire, renvois « Voir aussi » et index |
 | Base de données | **SQLite** via `sqlite3`, SQL écrit à la main, mode WAL | Récits, consentements, textes, mots-clés, carnet |
 | Dossiers de données | **platformdirs** | Emplacement propre à chaque système, jamais en dur |

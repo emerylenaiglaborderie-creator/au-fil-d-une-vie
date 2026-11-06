@@ -5,6 +5,18 @@ côtés : un test le vérifie, ainsi que l'absence de phrase non traduite.
 """
 
 EN: dict[str, str] = {
+    "Un récit, dans l'ordre où tu l'as recueilli": "A story, in the order you gathered it",
+    "Un lien : plus il est épais, plus les mots sont rares": (
+        "A link: the thicker it is, the rarer the words"
+    ),
+    "Les mots que les deux récits partagent": "The words both stories share",
+    "{stories} récits, {linked} reliés par {words} mots communs.": (
+        "{stories} stories, {linked} linked by {words} shared words."
+    ),
+    "Passe sur un récit pour lire son titre et voir tous ses liens.": (
+        "Hover over a story to read its title and see all its links."
+    ),
+    "Double-clique sur un récit pour l'ouvrir.": "Double-click a story to open it.",
     # Navigation, en-tête, pied de page
     "Ma quête": "My quest",
     "Interview": "Interview",
@@ -283,18 +295,11 @@ EN: dict[str, str] = {
     "Le graphe apparaîtra quand tu auras recueilli et relié quelques récits.": (
         "The graph will appear once you have collected and linked a few stories."
     ),
-    "{stories} récits, {linked} reliés par {words} mots communs. Double-clique sur un récit pour l'ouvrir.": (
-        "{stories} stories, {linked} linked by {words} shared words. Double-click a story "
-        "to open it."
-    ),
     "Récit sélectionné": "Selected story",
     "Pas encore de mot en commun avec un autre récit.": "No word in common with another story yet.",
     "Ouvrir la fiche": "Open the story",
     "Légende": "Legend",
-    "Un récit": "A story",
     "Un récit sans lien pour l'instant": "A story with no link yet",
-    "Un mot qu'on retrouve ailleurs": "A word found elsewhere",
-    "Un fil entre un récit et un mot": "A thread between a story and a word",
     # Livre de famille
     "Le livre de famille": "The family book",
     "Choisis les récits à mettre dans ton livre. Il est créé en PDF sur cet ordinateur, avec un sommaire, les liens entre les récits et un index des mots.": (

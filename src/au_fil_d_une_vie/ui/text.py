@@ -1,6 +1,6 @@
 """Petits utilitaires de texte pour l'interface (selon la langue choisie)."""
 
-from datetime import datetime
+from datetime import date, datetime
 
 from au_fil_d_une_vie import i18n
 from au_fil_d_une_vie.i18n import _
@@ -12,6 +12,11 @@ def short_date(value: datetime) -> str:
     """« 12 oct. 2026 » ou « Oct 12, 2026 », en heure locale."""
     local = value.astimezone()
     return i18n.short_date(local.day, local.month, local.year)
+
+
+def month_label(value: date) -> str:
+    """« oct. 2026 » ou « Oct 2026 »."""
+    return i18n.month_label(value.month, value.year)
 
 
 def duration(seconds: float) -> str:

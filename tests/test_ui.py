@@ -570,7 +570,7 @@ def test_cliquer_un_point_du_graphe_le_selectionne(qtbot: QtBot, window: MainWin
     vue = ecran._view
     assert vue is not None
     autre = next(s for s in vue.stories if s.id != ecran._selected)
-    point = ecran._board._point(autre.x, autre.y).toPoint()
+    point = ecran._board.dot_center(autre.id).toPoint()
     qtbot.mouseClick(ecran._board, Qt.MouseButton.LeftButton, pos=point)
     assert ecran._selected == autre.id
     assert ecran._card_question.text() == autre.question
@@ -927,27 +927,87 @@ def test_aucun_francais_ne_reste_en_anglais(
 # Graphe : des fils souples
 
 
-def test_les_fils_du_graphe_sont_courbes_et_stables() -> None:
-    import math
-
+def test_un_arc_part_d_un_recit_et_retombe_sur_l_autre() -> None:
     from PySide6.QtCore import QPointF
 
-    from au_fil_d_une_vie.ui.screens.graph import flowing_thread
+    from au_fil_d_une_vie.ui.screens.graph import arc_path
 
-    depart, arrivee = QPointF(100, 100), QPointF(400, 160)
-    fil = flowing_thread(depart, arrivee, seed=42)
-    assert fil.pointAtPercent(0) == depart
-    assert fil.pointAtPercent(1) == arrivee
-    dx, dy = arrivee.x() - depart.x(), arrivee.y() - depart.y()
-    longueur = math.hypot(dx, dy)
+    depart, arrivee = QPointF(100, 300), QPointF(500, 300)
+    arc = arc_path(depart, arrivee, 120)
+    assert arc.pointAtPercent(0) == depart
+    assert arc.pointAtPercent(1) == arrivee
+    sommet = min(arc.pointAtPercent(t / 40).y() for t in range(41))
+    assert abs((300 - sommet) - 120) < 2  # il monte de la hauteur demandée
 
-    def ecart(point: QPointF) -> float:  # distance à la ligne droite
-        return abs(dy * (point.x() - depart.x()) - dx * (point.y() - depart.y())) / longueur
 
-    # Arc ou vague, le fil s'écarte nettement de la droite quelque part.
-    for graine in range(20):
-        fil = flowing_thread(depart, arrivee, seed=graine)
-        assert max(ecart(fil.pointAtPercent(t / 20)) for t in range(1, 20)) > 0.07 * longueur
-    # Même lien, même tracé.
-    un, deux = flowing_thread(depart, arrivee, 7), flowing_thread(depart, arrivee, 7)
-    assert un.pointAtPercent(0.4) == deux.pointAtPercent(0.4)
+def test_le_survol_d_un_recit_met_ses_liens_en_avant(qtbot: QtBot, window: MainWindow) -> None:
+    window.show()
+    window.show_screen(MainWindow.GRAPH)
+    plateau = window.graph._board
+    vue = window.graph._view
+    assert vue is not None
+    autre = next(s for s in vue.stories if s.id != window.graph._selected)
+    qtbot.mouseMove(plateau, plateau.dot_center(autre.id).toPoint())
+    qtbot.waitUntil(lambda: plateau._hovered == autre.id, timeout=1000)
+    assert autre.id in plateau._focus()
+
+
+@pytest.fixture
+def grande_quete(qtbot: QtBot, tmp_path: Path, micro: FakeAudioInput) -> Iterator[MainWindow]:
+    """Fenêtre sur une base de 30 récits fictifs reliés par quelques mots."""
+    import random
+    from datetime import UTC, datetime, timedelta
+
+    from au_fil_d_une_vie.bootstrap import build_services
+    from au_fil_d_une_vie.repositories import Repositories
+
+    create_application([])
+    db = tmp_path / "grande.db"
+    repos = Repositories.open(db)
+    repos.profile.save("Camille", under_15=False)
+    piste = repos.themes.add_theme("vie", "Vie", 1)
+    question = repos.themes.add_question(piste.id, "Raconte-moi un souvenir.", 1)
+    proche = repos.people.add("Mamie Yvonne", "grand-mère")
+    rng = random.Random(5)
+    for index in range(30):
+        story = repos.stories.create(
+            person_id=proche.id,
+            question_id=question.id,
+            duration_s=90.0,
+            audio_path=Path(f"g/{index}.wav"),
+            consent_statement="Consentement fictif.",
+            recorded_at=datetime(2026, 1, 1, tzinfo=UTC) + timedelta(days=index * 4),
+        )
+        for mot in rng.sample([f"mot{i}" for i in range(18)], 3):
+            repos.keywords.add_validated(story.id, mot, mot)
+    services = build_services(
+        repos, db, tmp_path / "audio", lambda: micro, tmp_path / "m", tmp_path / "s.json"
+    )
+    fenetre = MainWindow(services)
+    fenetre.resize(1360, 900)
+    qtbot.addWidget(fenetre)
+    yield fenetre
+    fenetre.interview.abandon()
+
+
+def test_le_graphe_d_une_grande_famille_passe_en_compact(
+    qtbot: QtBot, grande_quete: MainWindow
+) -> None:
+    from au_fil_d_une_vie.services.graph import Density
+
+    grande_quete.show()
+    grande_quete.show_screen(MainWindow.GRAPH)
+    ecran = grande_quete.graph
+    vue = ecran._view
+    assert vue is not None and vue.density is Density.COMPACT
+    assert len(vue.stories) == 30
+    plateau = ecran._board
+    # Tous les points tiennent sur le plateau, dans l'ordre, sans se chevaucher.
+    xs = [plateau.dot_center(s.id).x() for s in vue.stories]
+    assert xs == sorted(xs) and xs[0] > 0 and xs[-1] < plateau.width()
+    assert min(b - a for a, b in zip(xs, xs[1:], strict=False)) >= 14
+    # Un clic sélectionne bien le récit visé, même serré.
+    cible = vue.stories[17]
+    qtbot.mouseClick(plateau, Qt.MouseButton.LeftButton, pos=plateau.dot_center(cible.id).toPoint())
+    assert ecran._selected == cible.id
+    plateau.grab()  # le dessin compact (plaque du titre comprise) ne lève pas d'erreur
