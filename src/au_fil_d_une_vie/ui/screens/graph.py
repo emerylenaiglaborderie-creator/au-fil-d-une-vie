@@ -62,22 +62,6 @@ def arc_path(start: QPointF, end: QPointF, height: float) -> QPainterPath:
     return path
 
 
-def _leaf_path(rect: QRectF, big: float = 14, small: float = 3) -> QPainterPath:
-    """Rectangle aux coins « feuille » : deux arrondis, deux presque droits."""
-    r = rect
-    path = QPainterPath()
-    path.moveTo(r.left() + big, r.top())
-    path.lineTo(r.right() - small, r.top())
-    path.quadTo(r.right(), r.top(), r.right(), r.top() + small)
-    path.lineTo(r.right(), r.bottom() - big)
-    path.quadTo(r.right(), r.bottom(), r.right() - big, r.bottom())
-    path.lineTo(r.left() + small, r.bottom())
-    path.quadTo(r.left(), r.bottom(), r.left(), r.bottom() - small)
-    path.lineTo(r.left(), r.top() + big)
-    path.quadTo(r.left(), r.top(), r.left() + big, r.top())
-    return path
-
-
 def two_lines(text: str, metrics: QFontMetrics, width: int) -> list[str]:
     """Coupe le texte en deux lignes au plus, sur des mots, avec « … » si besoin."""
     words = text.split()
@@ -372,18 +356,19 @@ class GraphBoard(QWidget):
             # Un lien du focus qui sort de la vue est résumé par l'étiquette de bord :
             # tracé léger et sans mots, pour ne pas former un faisceau sous le haut du plateau.
             leaving = focused and (start.x() < self._span[0] or end.x() > self._span[1])
-            color = QColor(theme.THREAD if focused else theme.THREAD_SOFT)
-            if leaving:
-                color.setAlphaF(0.3)
-            else:
-                color.setAlphaF(0.95 if focused else (faded if focus else resting))
-            strong_pen = focused and not leaving
-            pen = QPen(color, (1.4 if strong_pen else 1.0) + 2.6 * arc.weight / heaviest)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            painter.setPen(pen)
-            painter.setBrush(Qt.BrushStyle.NoBrush)
             path = arc_path(start, end, self._arc_height(arc))
-            painter.drawPath(path)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            if focused and not leaving:
+                self._paint_red_thread(painter, path, arc.weight / heaviest)
+            else:
+                # Les autres liens : un faufilage, fins points de bâti qui restent en retrait.
+                color = QColor(theme.THREAD_SOFT)
+                color.setAlphaF(0.3 if leaving else (faded if focus else resting))
+                pen = QPen(color, 1.0)
+                pen.setDashPattern([3.0, 3.0])
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                painter.setPen(pen)
+                painter.drawPath(path)
             if id(arc) in labelled and not leaving:
                 text = self._words_text(arc)
                 rect = self._free_spot(self._word_rect(text, path.pointAtPercent(0.5)), taken)
@@ -391,6 +376,28 @@ class GraphBoard(QWidget):
                     taken.append(rect.adjusted(-4, -2, 4, 2))
                     labels.append((rect, text))
         return labels
+
+    @staticmethod
+    def _paint_red_thread(painter: QPainter, path: QPainterPath, strength: float) -> None:
+        """Un lien du récit choisi : un fil de couture rouge, fin et légèrement torsadé.
+
+        Un lien fort (mots rares) est à peine plus épais : la différence se devine
+        sans alourdir le dessin.
+        """
+        width = 1.3 + 1.1 * strength
+        red = theme.color(theme.RED)
+        pen = QPen(red, width)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(pen)
+        painter.drawPath(path)
+        # La torsion du fil : un liseré plus clair, en tirets courts, posé dessus.
+        light = QColor(theme.ON_RED)
+        light.setAlphaF(0.45)
+        twist = QPen(light, max(0.6, width * 0.35))
+        twist.setDashPattern([1.2, 3.2])
+        twist.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(twist)
+        painter.drawPath(path)
 
     def _free_spot(self, rect: QRectF, taken: list[QRectF]) -> QRectF | None:
         """Place de l'étiquette : au sommet de l'arc, sinon juste au-dessus ou au-dessous,
@@ -453,23 +460,27 @@ class GraphBoard(QWidget):
         return " · ".join(shown) + (f" +{more}" if more else "")
 
     def _word_rect(self, text: str, center: QPointF) -> QRectF:
-        width = QFontMetrics(self._word_font).horizontalAdvance(text) + 22
+        width = QFontMetrics(self._word_font).horizontalAdvance(text) + 30  # place de l'œillet
         left = min(max(center.x() - width / 2, 6), self.width() - width - 6)
-        return QRectF(left, center.y() - 13, width, 26)
+        return QRectF(left, center.y() - 12, width, 24)
 
     def _paint_word(self, painter: QPainter, rect: QRectF, text: str) -> None:
-        """Étiquette feuille du style herbier : ombre pleine décalée, bord fin."""
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(theme.color(theme.WASH))
-        painter.drawPath(_leaf_path(rect.translated(3, 3), 12, 2))
-        border = QColor(theme.LEAF_TEXT_SOFT)
-        border.setAlphaF(0.55)
-        painter.setPen(QPen(border, 1.0))
-        painter.setBrush(theme.color(theme.WORD_GREEN))
-        painter.drawPath(_leaf_path(rect, 12, 2))
+        """Petite étiquette de papier, comme celles de l'arbre : coins coupés, œillet."""
+        cut = 7.0
+        tag = QPainterPath(QPointF(rect.left() + cut, rect.top()))
+        tag.lineTo(rect.right(), rect.top())
+        tag.lineTo(rect.right(), rect.bottom())
+        tag.lineTo(rect.left() + cut, rect.bottom())
+        tag.lineTo(rect.left(), rect.center().y())
+        tag.closeSubpath()
+        painter.setPen(QPen(theme.color(theme.INK_SOFT), 1.0))
+        painter.setBrush(theme.color(theme.PAPER))
+        painter.drawPath(tag)
+        painter.setBrush(theme.color(theme.CREAM))
+        painter.drawEllipse(QPointF(rect.left() + 9, rect.center().y()), 2.4, 2.4)
         painter.setFont(self._word_font)
-        painter.setPen(theme.color(theme.LEAF_TEXT))
-        painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
+        painter.setPen(theme.color(theme.INK))
+        painter.drawText(rect.adjusted(14, 0, -4, 0), Qt.AlignmentFlag.AlignCenter, text)
 
     def _paint_story(self, painter: QPainter, node: StoryNode, focus: set[int]) -> None:
         center = self._mark(node.position)
@@ -574,8 +585,8 @@ class ThreadOverview(QWidget):
             return
         y = self.height() - 12.0
         ink = QColor(theme.THREAD_SOFT)
-        ink.setAlphaF(0.18)  # en miniature, les arcs ne sont qu'une trame légère
-        painter.setPen(QPen(ink, 0.8))
+        ink.setAlphaF(0.09)  # en miniature, les liens ne sont qu'une trame légère
+        painter.setPen(QPen(ink, 0.7))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         positions = {s.id: s.position for s in self._view.stories}
         for arc in self._view.arcs:
@@ -849,10 +860,14 @@ class LegendMark(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         if self._kind in ("story", "alone"):
             paint_dot(painter, QPointF(8, 9), 16, filled=self._kind == "story")
-        elif self._kind == "word":
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(theme.color(theme.WORD_GREEN))
-            painter.drawPath(_leaf_path(QRectF(0, 2, 28, 16), 12, 2))
-        else:  # un petit arc, comme dans le graphe
-            painter.setPen(QPen(theme.color(theme.THREAD), 2))
+        elif self._kind == "word":  # une petite étiquette de papier
+            tag = QPainterPath(QPointF(6, 3))
+            for point in (QPointF(28, 3), QPointF(28, 17), QPointF(6, 17), QPointF(1, 10)):
+                tag.lineTo(point)
+            tag.closeSubpath()
+            painter.setPen(QPen(theme.color(theme.INK_SOFT), 1.0))
+            painter.setBrush(theme.color(theme.PAPER))
+            painter.drawPath(tag)
+        else:  # un petit arc de fil rouge, comme dans le graphe
+            painter.setPen(QPen(theme.color(theme.RED), 1.8))
             painter.drawPath(arc_path(QPointF(2, 17), QPointF(26, 17), 12))
