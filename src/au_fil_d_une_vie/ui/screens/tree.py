@@ -62,6 +62,7 @@ from PySide6.QtWidgets import (
 from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.services.quest import PersonProgress, QuestService
 from au_fil_d_une_vie.ui import theme
+from au_fil_d_une_vie.ui.ink import bezier, smooth_path, tapered_path
 from au_fil_d_une_vie.ui.text import plural
 from au_fil_d_une_vie.ui.widgets import icon_pixmap, paint_dot
 
@@ -81,48 +82,6 @@ def with_alpha(color: QColor, alpha: int) -> QColor:
 
 
 # Courbes
-
-
-def bezier(p0: QPointF, c1: QPointF, c2: QPointF, p3: QPointF, t: float) -> QPointF:
-    u = 1 - t
-    return p0 * (u**3) + c1 * (3 * u * u * t) + c2 * (3 * u * t * t) + p3 * (t**3)
-
-
-def smooth_path(points: list[QPointF]) -> QPainterPath:
-    """Courbe lisse passant par tous les points (spline de Catmull-Rom)."""
-    path = QPainterPath(points[0])
-    padded = [points[0], *points, points[-1]]
-    for i in range(1, len(padded) - 2):
-        p0, p1, p2, p3 = padded[i - 1], padded[i], padded[i + 1], padded[i + 2]
-        path.cubicTo(p1 + (p2 - p0) / 6, p2 - (p3 - p1) / 6, p2)
-    return path
-
-
-def tapered_path(centre: QPainterPath, start_width: float, end_width: float) -> QPainterPath:
-    """Trait plein qui s'affine le long d'un chemin quelconque."""
-    steps = 90
-    total = centre.length()
-    left: list[QPointF] = []
-    right: list[QPointF] = []
-    for i in range(steps + 1):
-        t = i / steps
-        percent = centre.percentAtLength(total * t)
-        point = centre.pointAtPercent(percent)
-        angle = math.radians(centre.angleAtPercent(percent))
-        normal = QPointF(
-            math.sin(angle), math.cos(angle)
-        )  # angle de Qt : sens trigonométrique, y vers le bas
-        width = end_width + (start_width - end_width) * (1 - t) ** 1.6
-        left.append(point + normal * (width / 2))
-        right.append(point - normal * (width / 2))
-    path = QPainterPath(left[0])
-    for point in left[1:]:
-        path.lineTo(point)
-    path.quadTo(centre.pointAtPercent(1.0), right[-1])
-    for point in reversed(right[:-1]):
-        path.lineTo(point)
-    path.closeSubpath()
-    return path
 
 
 def meandering_root(start: QPointF, end: QPointF, seed: int) -> QPainterPath:

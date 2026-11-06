@@ -26,6 +26,7 @@ from au_fil_d_une_vie.ui.widgets import (
     ConsentBox,
     LeafBullet,
     PrimaryButton,
+    Sprig,
     ThreadWave,
     clear_layout,
     eyebrow,
@@ -277,6 +278,9 @@ class InterviewScreen(QWidget):
             row.clicked.connect(lambda question_id=question_id: self._choose(question_id))
             others.addWidget(row)
         self._aside.addLayout(others)
+        # Rameau décoratif dans la place libre, sous le contenu.
+        self._aside.addSpacing(24)
+        self._aside.addWidget(Sprig(220, 280, seed=11), 0, Qt.AlignmentFlag.AlignHCenter)
         self._aside.addStretch(1)
 
     # Piste et personne

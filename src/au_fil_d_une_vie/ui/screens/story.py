@@ -26,6 +26,7 @@ from au_fil_d_une_vie.ui.text import duration, short_date
 from au_fil_d_une_vie.ui.widgets import (
     ClickableFrame,
     PrimaryButton,
+    Sprig,
     ThreadDivider,
     clear_layout,
     eyebrow,
@@ -311,6 +312,9 @@ class StoryScreen(QWidget):
         privacy.addWidget(delete)
         privacy.addStretch(1)
         self._aside.addLayout(privacy)
+        # Rameau décoratif dans la place libre, sous le contenu.
+        self._aside.addSpacing(24)
+        self._aside.addWidget(Sprig(220, 280, seed=13), 0, Qt.AlignmentFlag.AlignHCenter)
         self._aside.addStretch(1)
 
     # Données

@@ -2,7 +2,6 @@
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDialog,
     QFrame,
     QHBoxLayout,
     QMessageBox,
@@ -17,10 +16,10 @@ from au_fil_d_une_vie.services.people import PeopleService, PersonError
 from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.person_form import PersonForm
 from au_fil_d_une_vie.ui.text import plural
-from au_fil_d_une_vie.ui.widgets import clear_layout, label, link_button, section_title
+from au_fil_d_une_vie.ui.widgets import PaperDialog, clear_layout, label, link_button, section_title
 
 
-class PeopleDialog(QDialog):
+class PeopleDialog(PaperDialog):
     VISIBLE_ROWS = 5
 
     def __init__(self, service: PeopleService, parent: QWidget | None = None) -> None:
@@ -30,7 +29,6 @@ class PeopleDialog(QDialog):
         self.setWindowTitle(_("Mes proches"))
         self.setModal(True)
         self.setFixedWidth(640)
-        self.setStyleSheet(f"QDialog {{ background: {theme.CREAM}; }}")
 
         box = QVBoxLayout(self)
         box.setContentsMargins(40, 30, 40, 30)
@@ -47,7 +45,8 @@ class PeopleDialog(QDialog):
         self._list.setWidgetResizable(True)
         self._list.setFrameShape(QFrame.Shape.NoFrame)
         self._list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._list.setStyleSheet(f"QScrollArea, QWidget#page {{ background: {theme.CREAM}; }}")
+        self._list.setStyleSheet("QScrollArea, QWidget#page { background: transparent; }")
+        self._list.viewport().setAutoFillBackground(False)
         self._list.setWidget(rows_box)
         box.addWidget(self._list)
         box.addSpacing(12)

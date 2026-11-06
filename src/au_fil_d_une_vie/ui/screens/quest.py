@@ -23,8 +23,8 @@ from au_fil_d_une_vie.ui.widgets import (
     ClickableFrame,
     DotRow,
     LeafToggle,
-    Picture,
     PrimaryButton,
+    Sprig,
     clear_layout,
     eyebrow,
     label,
@@ -88,15 +88,11 @@ class QuestScreen(QWidget):
         aside = QVBoxLayout()
         aside.setSpacing(4)
         aside.setContentsMargins(0, 16, 0, 0)
-        aside.addWidget(Picture(theme.IMAGES / "arbre.png", 340))
-        grows = label(_("ton arbre pousse"), theme.SCRIPT, 46, color=theme.LEAF_TEXT)
-        grows.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        aside.addWidget(grows)
-        self._summary = label("", px=15, color=theme.MUTED)
-        self._summary.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        aside.addWidget(self._summary)
-        aside.addSpacing(30)
+        # L'arbre est déjà l'écran d'accueil : l'aside va droit aux personnes.
         aside.addWidget(section_title(_("Les personnes à interroger")))
+        aside.addSpacing(4)
+        self._summary = label("", px=15, color=theme.MUTED)
+        aside.addWidget(self._summary)
         aside.addSpacing(4)
         self._rows = QVBoxLayout()
         self._rows.setSpacing(0)
@@ -104,6 +100,9 @@ class QuestScreen(QWidget):
         manage = link_button(_("+ Ajouter ou modifier un proche"))
         manage.clicked.connect(self.manage_people)
         aside.addWidget(manage, 0, Qt.AlignmentFlag.AlignLeft)
+        # Rameau décoratif dans la place libre, sous le contenu.
+        aside.addSpacing(24)
+        aside.addWidget(Sprig(240, 300, seed=5), 0, Qt.AlignmentFlag.AlignHCenter)
         aside.addStretch(1)
         aside_box = QWidget()
         aside_box.setLayout(aside)

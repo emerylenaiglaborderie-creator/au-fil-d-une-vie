@@ -1,5 +1,6 @@
 """Composants maison de la DA : points rouges, fil, boutons, étiquettes feuilles, cartes."""
 
+import random
 from pathlib import Path
 
 from PySide6.QtCore import (
@@ -32,6 +33,7 @@ from PySide6.QtGui import (
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
     QAbstractButton,
+    QDialog,
     QFrame,
     QGraphicsDropShadowEffect,
     QLabel,
@@ -43,6 +45,7 @@ from PySide6.QtWidgets import (
 
 from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.ui import theme
+from au_fil_d_une_vie.ui.ink import leaf_path, leaf_vein, smooth_path, tapered_path
 
 
 def clear_layout(layout: QLayout) -> None:
@@ -522,6 +525,13 @@ def paint_paper(painter: QPainter, rect: QRect) -> None:
     painter.restore()
 
 
+class PaperDialog(QDialog):
+    """Fenêtre secondaire posée sur le même papier d'herbier que les pages."""
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        paint_paper(QPainter(self), self.rect())
+
+
 class Paper(QWidget):
     """Bande de papier (en-tête, pied de page) avec un trait d'encre ou de pointillés.
 
@@ -544,6 +554,72 @@ class Paper(QWidget):
             painter.setPen(pen)
             y = 0
         painter.drawLine(QPointF(0, y + 0.5), QPointF(self.width(), y + 0.5))
+
+
+class Sprig(QWidget):
+    """Rameau d'encre décoratif (style herbier) : une tige, des feuilles en lavis.
+
+    Il se place dans une zone vide de la page, jamais derrière du texte, et ne
+    réagit pas à la souris. Le tracé est tiré avec une graine fixe : chaque page a
+    son rameau, identique d'un lancement à l'autre.
+    """
+
+    LEAF_GREENS = ("#A9CB6E", "#7FB04D", "#CFE0A0")
+
+    def __init__(
+        self, width: int = 220, height: int = 300, seed: int = 1, parent: QWidget | None = None
+    ) -> None:
+        super().__init__(parent)
+        self.setFixedSize(width, height)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._seed = seed
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        rng = random.Random(self._seed)
+        w, h = float(self.width()), float(self.height())
+        lean = rng.choice((-1, 1))
+        # Tige : elle part du bas et monte en s'inclinant, avec une légère ondulation.
+        points = [
+            QPointF(w * 0.5 - lean * w * 0.12, h - 4),
+            QPointF(w * 0.5 + lean * rng.uniform(0.0, 0.08) * w, h * 0.68),
+            QPointF(w * 0.5 + lean * rng.uniform(0.08, 0.16) * w, h * 0.38),
+            QPointF(w * 0.5 + lean * rng.uniform(0.18, 0.26) * w, h * 0.08),
+        ]
+        stem = smooth_path(points)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        ink = theme.color(theme.INK_SOFT)
+        ink.setAlpha(215)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(ink)
+        painter.drawPath(tapered_path(stem, 3.2, 0.7))
+
+        # Feuilles alternées, de plus en plus petites vers la pointe.
+        alpha = 150 if theme.DARK_MODE else 235
+        count = 9
+        for i in range(count):
+            t = 0.14 + 0.8 * i / (count - 1)
+            percent = stem.percentAtLength(stem.length() * t)
+            base = stem.pointAtPercent(percent)
+            direction = -stem.angleAtPercent(percent)  # angle de l'écran
+            side = 1 if i % 2 == 0 else -1
+            angle = direction + side * rng.uniform(42, 62)
+            length = (46 - 22 * t) * rng.uniform(0.85, 1.1)
+            width = length * rng.uniform(0.3, 0.38)
+            leaf = leaf_path(base, angle, length, width)
+            green = QColor(self.LEAF_GREENS[rng.randrange(len(self.LEAF_GREENS))])
+            green.setAlpha(alpha)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(green)
+            painter.drawPath(leaf.translated(2.0, 1.5))  # aplat légèrement décalé
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(QPen(ink, 1.1))
+            painter.drawPath(leaf)
+            painter.setPen(QPen(ink, 0.8))
+            painter.drawPath(leaf_vein(base, angle, length))
+        # Un bourgeon au sommet, point rouge du fil.
+        paint_dot(painter, points[-1], 7, True)
 
 
 class WashedPage(QWidget):

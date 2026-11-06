@@ -14,8 +14,8 @@ from au_fil_d_une_vie.ui.leaves import ElidedLabel, LeafChip, SearchField, Under
 from au_fil_d_une_vie.ui.text import duration, links_label, short_date
 from au_fil_d_une_vie.ui.widgets import (
     ClickableFrame,
-    Picture,
     PrimaryButton,
+    Sprig,
     clear_layout,
     eyebrow,
     label,
@@ -192,7 +192,9 @@ class StoriesScreen(QWidget):
         new.setMinimumWidth(380)
         new.clicked.connect(self.new_interview)
         aside.addWidget(new)
-        aside.addWidget(Picture(theme.logo_image(), 380))
+        # Rameau décoratif dans la place libre, sous le contenu.
+        aside.addSpacing(24)
+        aside.addWidget(Sprig(300, 380, seed=3), 0, Qt.AlignmentFlag.AlignHCenter)
         aside.addStretch(1)
         aside_box = QWidget()
         aside_box.setLayout(aside)

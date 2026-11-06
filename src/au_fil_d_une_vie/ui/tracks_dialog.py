@@ -4,7 +4,6 @@ from collections.abc import Callable
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDialog,
     QHBoxLayout,
     QMessageBox,
     QPushButton,
@@ -20,6 +19,7 @@ from au_fil_d_une_vie.ui.leaves import SearchField
 from au_fil_d_une_vie.ui.text import plural
 from au_fil_d_une_vie.ui.widgets import (
     ClickableFrame,
+    PaperDialog,
     clear_layout,
     eyebrow,
     label,
@@ -37,7 +37,7 @@ def _small_button(text: str, tooltip: str) -> QPushButton:
     return button
 
 
-class TracksDialog(QDialog):
+class TracksDialog(PaperDialog):
     def __init__(self, service: TrackService, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._service = service
@@ -46,7 +46,6 @@ class TracksDialog(QDialog):
         self.setWindowTitle(_("Mes pistes"))
         self.setModal(True)
         self.setFixedSize(960, 760)
-        self.setStyleSheet(f"QDialog {{ background: {theme.CREAM}; }}")
 
         root = QVBoxLayout(self)
         root.setContentsMargins(40, 28, 40, 28)
@@ -78,9 +77,11 @@ class TracksDialog(QDialog):
         list_box.setLayout(self._list)
         area = QScrollArea()
         area.setWidgetResizable(True)
+        list_box.setObjectName("scrollContent")
         area.setWidget(list_box)
+        area.viewport().setAutoFillBackground(False)
         area.setStyleSheet(
-            f"QScrollArea {{ background: transparent; }} QWidget {{ background: {theme.CREAM}; }}"
+            "QScrollArea, QScrollArea QWidget#scrollContent { background: transparent; }"
         )
         left.addWidget(area, 1)
         new_row = QHBoxLayout()
@@ -127,9 +128,11 @@ class TracksDialog(QDialog):
         questions_box.setLayout(self._questions)
         q_area = QScrollArea()
         q_area.setWidgetResizable(True)
+        questions_box.setObjectName("scrollContent")
         q_area.setWidget(questions_box)
+        q_area.viewport().setAutoFillBackground(False)
         q_area.setStyleSheet(
-            f"QScrollArea {{ background: transparent; }} QWidget {{ background: {theme.CREAM}; }}"
+            "QScrollArea, QScrollArea QWidget#scrollContent { background: transparent; }"
         )
         right.addWidget(q_area, 1)
         q_row = QHBoxLayout()

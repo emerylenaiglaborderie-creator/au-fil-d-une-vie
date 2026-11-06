@@ -6,7 +6,6 @@ from PySide6.QtCore import QStandardPaths, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QFontMetrics
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDialog,
     QFileDialog,
     QHBoxLayout,
     QScrollArea,
@@ -22,6 +21,7 @@ from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.bridge import BackgroundTask
 from au_fil_d_une_vie.ui.text import plural
 from au_fil_d_une_vie.ui.widgets import (
+    PaperDialog,
     PrimaryButton,
     ThreadProgress,
     eyebrow,
@@ -38,7 +38,7 @@ def default_book_path() -> Path:
     return Path(documents or Path.home()) / (_(DEFAULT_NAME))
 
 
-class BookDialog(QDialog):
+class BookDialog(PaperDialog):
     """Choix des récits (case par récit, rangés par piste) puis création du PDF."""
 
     created = Signal(Path)
@@ -51,7 +51,6 @@ class BookDialog(QDialog):
         self.setWindowTitle(_("Livre de famille"))
         self.setModal(True)
         self.setFixedWidth(620)
-        self.setStyleSheet(f"QDialog {{ background: {theme.CREAM}; }}")
 
         box = QVBoxLayout(self)
         box.setContentsMargins(40, 30, 40, 30)

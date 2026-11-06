@@ -13,6 +13,7 @@ from au_fil_d_une_vie.ui.leaves import SearchField
 from au_fil_d_une_vie.ui.text import plural
 from au_fil_d_une_vie.ui.widgets import (
     LeafToggle,
+    Sprig,
     eyebrow,
     label,
     link_button,
@@ -53,6 +54,9 @@ class SettingsScreen(QWidget):
         right.addWidget(self._people_card())
         right.addWidget(self._tracks_card())
         right.addWidget(self._data_card())
+        # Rameau décoratif dans la place libre, sous le contenu.
+        right.addSpacing(24)
+        right.addWidget(Sprig(240, 300, seed=8), 0, Qt.AlignmentFlag.AlignHCenter)
         right.addStretch(1)
         columns.addLayout(left, 1)
         columns.addLayout(right, 1)
@@ -84,7 +88,8 @@ class SettingsScreen(QWidget):
         self._name.setFont(theme.font(theme.SERIF, 20, italic=True))
         self._name.returnPressed.connect(self._save_name)
         row.addWidget(self._name, 1)
-        self._family = SearchField(_("Nom de famille (facultatif)"))
+        self._family = SearchField(_("Nom de famille"))
+        self._family.setToolTip(_("Facultatif"))
         self._family.setClearButtonEnabled(False)
         self._family.setFont(theme.font(theme.SERIF, 20, italic=True))
         self._family.returnPressed.connect(self._save_name)

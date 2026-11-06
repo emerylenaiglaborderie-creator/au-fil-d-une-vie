@@ -1,16 +1,22 @@
 """Fenêtre de premier lancement : télécharger le modèle de transcription (refusable)."""
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
 from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.services.whisper import APPROX_SIZE_MB, WhisperModels
 from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.bridge import BackgroundTask
-from au_fil_d_une_vie.ui.widgets import PrimaryButton, ThreadProgress, label, link_button
+from au_fil_d_une_vie.ui.widgets import (
+    PaperDialog,
+    PrimaryButton,
+    ThreadProgress,
+    label,
+    link_button,
+)
 
 
-class ModelSetupDialog(QDialog):
+class ModelSetupDialog(PaperDialog):
     """Explique pourquoi un téléchargement est nécessaire et laisse le choix."""
 
     installed = Signal()
@@ -22,7 +28,6 @@ class ModelSetupDialog(QDialog):
         self.setWindowTitle("Au fil d'une vie")
         self.setModal(True)
         self.setFixedWidth(560)
-        self.setStyleSheet(f"QDialog {{ background: {theme.CREAM}; }}")
 
         box = QVBoxLayout(self)
         box.setContentsMargins(40, 32, 40, 32)
