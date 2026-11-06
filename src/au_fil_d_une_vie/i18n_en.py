@@ -5,6 +5,10 @@ côtés : un test le vérifie, ainsi que l'absence de phrase non traduite.
 """
 
 EN: dict[str, str] = {
+    "Vue d'ensemble du fil": "Overview of the thread",
+    "Clique ou fais glisser pour te déplacer le long du fil.": (
+        "Click or drag to move along the thread."
+    ),
     "Un récit, dans l'ordre où tu l'as recueilli": "A story, in the order you gathered it",
     "Un lien : plus il est épais, plus les mots sont rares": (
         "A link: the thicker it is, the rarer the words"

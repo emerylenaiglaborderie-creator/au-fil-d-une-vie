@@ -2,7 +2,7 @@
 
 import math
 
-from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -12,11 +12,13 @@ from PySide6.QtGui import (
     QPainterPath,
     QPaintEvent,
     QPen,
+    QWheelEvent,
 )
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
     QHBoxLayout,
+    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -27,7 +29,7 @@ from au_fil_d_une_vie.services.graph import Arc, Density, GraphService, GraphVie
 from au_fil_d_une_vie.services.stories import StoryService
 from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.screens.story import RelatedThread
-from au_fil_d_une_vie.ui.text import month_label, short_date
+from au_fil_d_une_vie.ui.text import month_label, plural, short_date
 from au_fil_d_une_vie.ui.widgets import (
     eyebrow,
     label,
@@ -42,6 +44,7 @@ MARGIN_X = 96  # place des titres du premier et du dernier récit, et de la fin 
 THREAD_FROM_BOTTOM = 150  # sous le fil : titres, proches, repères de mois
 TITLE_MAX_WIDTH = 160
 WORD_LABELS_MAX = 5  # étiquettes de mots : les liens les plus forts du focus seulement
+MIN_SPACING = 26  # écart minimal entre deux récits ; au-delà, le fil défile
 
 
 def arc_path(start: QPointF, end: QPointF, height: float) -> QPainterPath:
@@ -100,11 +103,14 @@ class GraphBoard(QWidget):
 
     story_selected = Signal(int)
     story_activated = Signal(int)
+    reveal_requested = Signal(int)  # un récit hors de vue, à ramener à l'écran
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedHeight(BOARD_HEIGHT)
         self.setMinimumWidth(700)
+        self._span = (0.0, float("inf"))  # partie visible quand le fil défile
+        self._hints: list[tuple[QRectF, int]] = []  # étiquettes « liens hors de vue »
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setMouseTracking(True)
         self.setAccessibleName(_("Graphe des liens entre les récits"))
@@ -121,6 +127,17 @@ class GraphBoard(QWidget):
     def set_view(self, view: GraphView, selected: int | None) -> None:
         self._view = view
         self._selected = selected
+        self.setMinimumWidth(max(700, self.needed_width()))
+        self.update()
+
+    def needed_width(self) -> int:
+        """Largeur qu'il faut pour garder `MIN_SPACING` entre deux récits."""
+        count = len(self._view.stories) if self._view else 0
+        return int(2 * MARGIN_X + max(0, count - 1) * MIN_SPACING)
+
+    def set_visible_span(self, left: float, right: float) -> None:
+        """Partie du plateau affichée par la zone qui défile (pour les liens hors de vue)."""
+        self._span = (left, right)
         self.update()
 
     def set_selected(self, story_id: int | None) -> None:
@@ -198,6 +215,10 @@ class GraphBoard(QWidget):
             self.update()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
+        for rect, target in self._hints:
+            if rect.contains(event.position()):
+                self.reveal_requested.emit(target)
+                return
         story_id = self.node_at(event.position())
         if story_id is not None:
             self._selected = story_id
@@ -214,10 +235,9 @@ class GraphBoard(QWidget):
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        frame = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        painter.setPen(QPen(theme.color(theme.INK_SOFT), 1.5))
-        painter.setBrush(theme.color(theme.PAPER))
-        painter.drawRoundedRect(frame, 3, 3)
+        # Le cadre d'encre est celui de la zone qui défile : ses bords restent visibles.
+        painter.fillRect(self.rect(), theme.color(theme.PAPER))
+        self._hints = []
         if self._view is None or not self._view.stories:
             return
         focus = self._focus()
@@ -228,6 +248,7 @@ class GraphBoard(QWidget):
             self._paint_story(painter, node, focus)
         for rect, text in labels:
             self._paint_word(painter, rect, text)
+        self._paint_offscreen_hints(painter)
         if self._view.density is Density.COMPACT:
             for story_id in (self._selected, self._hovered):
                 focused = self._view.story(story_id) if story_id is not None else None
@@ -264,7 +285,8 @@ class GraphBoard(QWidget):
         if not self._show_words:
             labelled: set[int] = set()
         elif focus:
-            labelled = {id(a) for a in focused_arcs[:WORD_LABELS_MAX]}
+            inside = [a for a in focused_arcs if self._within_span(a)]
+            labelled = {id(a) for a in inside[:WORD_LABELS_MAX]}
         else:
             labelled = {id(a) for a in arcs} if full else set()
         # Hors focus, les arcs s'effacent d'autant plus que le fil est chargé.
@@ -273,17 +295,24 @@ class GraphBoard(QWidget):
         # Les arcs du focus par-dessus les autres.
         for arc in sorted(arcs, key=lambda a: (any(a.touches(f) for f in focus), a.weight)):
             focused = any(arc.touches(f) for f in focus)
+            start = self.dot_center(arc.story_a)
+            end = self.dot_center(arc.story_b)
+            # Un lien du focus qui sort de la vue est résumé par l'étiquette de bord :
+            # tracé léger et sans mots, pour ne pas former un faisceau sous le haut du plateau.
+            leaving = focused and (start.x() < self._span[0] or end.x() > self._span[1])
             color = QColor(theme.THREAD if focused else theme.THREAD_SOFT)
-            color.setAlphaF(0.95 if focused else (faded if focus else resting))
-            pen = QPen(color, (1.4 if focused else 1.0) + 2.6 * arc.weight / heaviest)
+            if leaving:
+                color.setAlphaF(0.3)
+            else:
+                color.setAlphaF(0.95 if focused else (faded if focus else resting))
+            strong_pen = focused and not leaving
+            pen = QPen(color, (1.4 if strong_pen else 1.0) + 2.6 * arc.weight / heaviest)
             pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            start = self.dot_center(arc.story_a)
-            end = self.dot_center(arc.story_b)
             path = arc_path(start, end, self._arc_height(arc))
             painter.drawPath(path)
-            if id(arc) in labelled:
+            if id(arc) in labelled and not leaving:
                 text = self._words_text(arc)
                 rect = self._word_rect(text, path.pointAtPercent(0.5))
                 while any(rect.intersects(t) for t in taken) and rect.top() > 8:
@@ -291,6 +320,49 @@ class GraphBoard(QWidget):
                 taken.append(rect.adjusted(-4, -2, 4, 2))
                 labels.append((rect, text))
         return labels
+
+    def _within_span(self, arc: Arc) -> bool:
+        left, right = self._span
+        return (
+            self.dot_center(arc.story_a).x() >= left and self.dot_center(arc.story_b).x() <= right
+        )
+
+    def _paint_offscreen_hints(self, painter: QPainter) -> None:
+        """Au bord de la vue : combien de liens du récit choisi mènent hors de l'écran."""
+        if self._view is None or self._selected is None:
+            return
+        left, right = self._span
+        if right == float("inf"):
+            return
+        before: list[tuple[float, int]] = []
+        after: list[tuple[float, int]] = []
+        for arc in self._view.arcs:
+            if not arc.touches(self._selected):
+                continue
+            other = arc.story_b if arc.story_a == self._selected else arc.story_a
+            x = self.dot_center(other).x()
+            if x < left:
+                before.append((left - x, other))
+            elif x > right:
+                after.append((x - right, other))
+        painter.setFont(self._person_font)
+        metrics = QFontMetrics(self._person_font)
+        y = self._thread_y() - 40
+        for side, links in (("left", before), ("right", after)):
+            if not links:
+                continue
+            nearest = min(links)[1]
+            count = plural(len(links), "lien", "liens")
+            text = f"←  {count}" if side == "left" else f"{count}  →"
+            width = metrics.horizontalAdvance(text) + 20
+            x = left + 10 if side == "left" else right - 10 - width
+            rect = QRectF(x, y, width, 24)
+            painter.setPen(QPen(theme.color(theme.INK_SOFT), 1.0))
+            painter.setBrush(theme.color(theme.PAPER))
+            painter.drawRoundedRect(rect, 3, 3)
+            painter.setPen(theme.color(theme.INK))
+            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
+            self._hints.append((rect, nearest))
 
     @staticmethod
     def _words_text(arc: Arc) -> str:
@@ -390,6 +462,100 @@ class GraphBoard(QWidget):
             )
 
 
+class ThreadOverview(QWidget):
+    """Vue d'ensemble du fil, quand il défile : tout le fil en miniature, et un cadre
+    qui montre la partie affichée. Un clic ou un glissé déplace la vue."""
+
+    moved = Signal(float)  # centre demandé, en fraction de la longueur du fil
+
+    HEIGHT = 44
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(self.HEIGHT)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setAccessibleName(_("Vue d'ensemble du fil"))
+        self.setToolTip(_("Clique ou fais glisser pour te déplacer le long du fil."))
+        self._view: GraphView | None = None
+        self._selected: int | None = None
+        self._window = (0.0, 1.0)
+
+    def set_view(self, view: GraphView, selected: int | None) -> None:
+        self._view, self._selected = view, selected
+        self.update()
+
+    def set_window(self, start: float, end: float) -> None:
+        self._window = (start, end)
+        self.update()
+
+    def _x(self, fraction: float) -> float:
+        return 8 + fraction * (self.width() - 16)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        self._move_to(event.position().x())
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if event.buttons() & Qt.MouseButton.LeftButton:
+            self._move_to(event.position().x())
+
+    def _move_to(self, x: float) -> None:
+        self.moved.emit(min(1.0, max(0.0, (x - 8) / max(1.0, self.width() - 16))))
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if self._view is None or not self._view.stories:
+            return
+        y = self.height() - 12.0
+        ink = QColor(theme.THREAD_SOFT)
+        ink.setAlphaF(0.18)  # en miniature, les arcs ne sont qu'une trame légère
+        painter.setPen(QPen(ink, 0.8))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        positions = {s.id: s.position for s in self._view.stories}
+        for arc in self._view.arcs:
+            if not arc.strong:
+                continue
+            start = QPointF(self._x(positions[arc.story_a]), y)
+            end = QPointF(self._x(positions[arc.story_b]), y)
+            painter.drawPath(arc_path(start, end, min(20.0, (end.x() - start.x()) * 0.3)))
+        painter.setPen(QPen(theme.color(theme.THREAD), 1.2))
+        painter.drawLine(QPointF(4, y), QPointF(self.width() - 4, y))
+        for story in self._view.stories:
+            selected = story.id == self._selected
+            paint_dot(painter, QPointF(self._x(story.position), y), 8 if selected else 4, True)
+        shown_from, shown_to = self._window
+        left, right = self._x(shown_from), self._x(shown_to)
+        frame = QRectF(left, 2, max(10.0, right - left), y + 7)
+        wash = QColor(theme.WASH)
+        wash.setAlphaF(0.4)
+        painter.setPen(QPen(theme.color(theme.INK_SOFT), 1.2))
+        painter.setBrush(wash)
+        painter.drawRoundedRect(frame, 3, 3)
+
+
+class ThreadScroller(QScrollArea):
+    """Zone qui défile horizontalement le long du fil ; la molette la fait défiler aussi."""
+
+    def __init__(self, board: GraphBoard, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("boardFrame")
+        self.setWidget(board)
+        self.setWidgetResizable(True)  # le plateau occupe toute la largeur, au moins
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setFixedHeight(BOARD_HEIGHT + 14)
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        bar = self.horizontalScrollBar()
+        if bar.maximum() == 0:  # rien à faire défiler : la page défile normalement
+            event.ignore()
+            return
+        delta = event.angleDelta().y() or event.angleDelta().x()
+        bar.setValue(bar.value() - delta)
+        event.accept()
+
+
 class GraphScreen(QWidget):
     story_opened = Signal(int)
 
@@ -422,11 +588,20 @@ class GraphScreen(QWidget):
         root.addLayout(head)
 
         # Le fil prend toute la largeur ; la fiche du récit choisi et la légende dessous.
+        self._overview = ThreadOverview()
+        self._overview.hide()
+        root.addWidget(self._overview)
         self._board = GraphBoard()
-        wash_shadow(self._board)
         self._board.story_selected.connect(self.select)
         self._board.story_activated.connect(self.story_opened)
-        root.addWidget(self._board)
+        self._board.reveal_requested.connect(self.reveal)
+        self._scroller = ThreadScroller(self._board)
+        wash_shadow(self._scroller)
+        bar = self._scroller.horizontalScrollBar()
+        bar.valueChanged.connect(lambda _value: self._sync_overview())
+        bar.rangeChanged.connect(lambda _low, _high: self._sync_overview())
+        self._overview.moved.connect(self._scroll_to_fraction)
+        root.addWidget(self._scroller)
         self._summary = label("", px=15, color=theme.MUTED)
         root.addWidget(self._summary)
         self._empty = label(
@@ -507,8 +682,12 @@ class GraphScreen(QWidget):
         if self._selected not in known:
             self._selected = self._view.busiest_story()
         self._board.set_view(self._view, self._selected)
+        self._overview.set_view(self._view, self._selected)
         has_stories = bool(self._view.stories)
-        self._board.setVisible(has_stories)
+        self._scroller.setVisible(has_stories)
+        if self._selected is not None:  # une fois la largeur du plateau connue
+            selected = self._selected
+            QTimer.singleShot(0, self, lambda: self._center_on(selected))
         self._card.setVisible(has_stories)
         self._empty.setVisible(not has_stories)
         linked = sum(1 for s in self._view.stories if s.linked)
@@ -532,7 +711,40 @@ class GraphScreen(QWidget):
     def select(self, story_id: int) -> None:
         self._selected = story_id
         self._board.set_selected(story_id)
+        if self._view is not None:
+            self._overview.set_view(self._view, story_id)
         self._fill_card()
+
+    def reveal(self, story_id: int) -> None:
+        """Un récit lié mais hors de vue : on le sélectionne et on le ramène au centre."""
+        self.select(story_id)
+        self._center_on(story_id)
+
+    # Défilement du fil
+
+    def _center_on(self, story_id: int | None) -> None:
+        if story_id is None or self._view is None or self._view.story(story_id) is None:
+            return
+        bar = self._scroller.horizontalScrollBar()
+        x = self._board.dot_center(story_id).x()
+        bar.setValue(int(x - self._scroller.viewport().width() / 2))
+
+    def _scroll_to_fraction(self, fraction: float) -> None:
+        bar = self._scroller.horizontalScrollBar()
+        center = fraction * self._board.width()
+        bar.setValue(int(center - self._scroller.viewport().width() / 2))
+
+    def _sync_overview(self) -> None:
+        """La vue d'ensemble n'apparaît que si le fil défile ; elle suit la partie visible."""
+        bar = self._scroller.horizontalScrollBar()
+        width = max(1, self._board.width())
+        visible = self._scroller.viewport().width()
+        scrolling = bar.maximum() > 0
+        self._overview.setVisible(scrolling and self._scroller.isVisible())
+        self._overview.set_window(bar.value() / width, (bar.value() + visible) / width)
+        self._board.set_visible_span(
+            bar.value(), bar.value() + visible if scrolling else float("inf")
+        )
 
     def _fill_card(self) -> None:
         if self._view is None or self._selected is None:

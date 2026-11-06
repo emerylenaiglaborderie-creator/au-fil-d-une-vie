@@ -953,8 +953,10 @@ def test_le_survol_d_un_recit_met_ses_liens_en_avant(qtbot: QtBot, window: MainW
 
 
 @pytest.fixture
-def grande_quete(qtbot: QtBot, tmp_path: Path, micro: FakeAudioInput) -> Iterator[MainWindow]:
-    """Fenêtre sur une base de 30 récits fictifs reliés par quelques mots."""
+def grande_quete(
+    qtbot: QtBot, tmp_path: Path, micro: FakeAudioInput, request: pytest.FixtureRequest
+) -> Iterator[MainWindow]:
+    """Fenêtre sur une base de récits fictifs reliés par quelques mots (30 par défaut)."""
     import random
     from datetime import UTC, datetime, timedelta
 
@@ -969,7 +971,8 @@ def grande_quete(qtbot: QtBot, tmp_path: Path, micro: FakeAudioInput) -> Iterato
     question = repos.themes.add_question(piste.id, "Raconte-moi un souvenir.", 1)
     proche = repos.people.add("Mamie Yvonne", "grand-mère")
     rng = random.Random(5)
-    for index in range(30):
+    count = getattr(request, "param", 30)
+    for index in range(count):
         story = repos.stories.create(
             person_id=proche.id,
             question_id=question.id,
@@ -1011,3 +1014,90 @@ def test_le_graphe_d_une_grande_famille_passe_en_compact(
     qtbot.mouseClick(plateau, Qt.MouseButton.LeftButton, pos=plateau.dot_center(cible.id).toPoint())
     assert ecran._selected == cible.id
     plateau.grab()  # le dessin compact (plaque du titre comprise) ne lève pas d'erreur
+
+
+# Fil qui défile (beaucoup de récits)
+
+
+def test_le_fil_de_la_demo_ne_defile_pas(window: MainWindow) -> None:
+    window.show()
+    window.show_screen(MainWindow.GRAPH)
+    ecran = window.graph
+    assert ecran._scroller.horizontalScrollBar().maximum() == 0
+    assert not ecran._overview.isVisible()
+
+
+@pytest.mark.parametrize("grande_quete", [120], indirect=True)
+def test_un_long_fil_defile_avec_une_vue_d_ensemble(qtbot: QtBot, grande_quete: MainWindow) -> None:
+    from PySide6.QtCore import QPoint, QPointF
+    from PySide6.QtGui import QWheelEvent
+
+    from au_fil_d_une_vie.ui.screens.graph import MIN_SPACING
+
+    grande_quete.show()
+    grande_quete.show_screen(MainWindow.GRAPH)
+    ecran = grande_quete.graph
+    barre = ecran._scroller.horizontalScrollBar()
+    qtbot.waitUntil(lambda: barre.maximum() > 0, timeout=2000)
+    assert ecran._overview.isVisible()
+    vue = ecran._view
+    assert vue is not None and len(vue.stories) == 120
+    xs = [ecran._board.dot_center(s.id).x() for s in vue.stories]
+    assert min(b - a for a, b in zip(xs, xs[1:], strict=False)) >= MIN_SPACING - 1
+
+    # Le récit sélectionné est ramené dans la vue.
+    def visible(story_id: int) -> bool:
+        x = ecran._board.dot_center(story_id).x()
+        return barre.value() <= x <= barre.value() + ecran._scroller.viewport().width()
+
+    assert ecran._selected is not None
+    qtbot.waitUntil(lambda: visible(ecran._selected or 0), timeout=2000)
+
+    # La vue d'ensemble déplace la vue : au tout début, puis à la fin du fil.
+    ecran._overview.moved.emit(0.0)
+    assert barre.value() == 0
+    ecran._overview.moved.emit(1.0)
+    assert barre.value() == barre.maximum()
+
+    # La molette fait défiler le fil horizontalement.
+    avant = barre.value()
+    centre = QPointF(ecran._scroller.viewport().rect().center())
+    molette = QWheelEvent(
+        centre,
+        ecran._scroller.mapToGlobal(centre),
+        QPoint(0, 0),
+        QPoint(0, 240),
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier,
+        Qt.ScrollPhase.NoScrollPhase,
+        False,
+    )
+    ecran._scroller.wheelEvent(molette)
+    assert barre.value() < avant
+
+
+@pytest.mark.parametrize("grande_quete", [120], indirect=True)
+def test_un_lien_hors_de_vue_ramene_au_recit_lie(qtbot: QtBot, grande_quete: MainWindow) -> None:
+    grande_quete.show()
+    grande_quete.show_screen(MainWindow.GRAPH)
+    ecran = grande_quete.graph
+    plateau = ecran._board
+    barre = ecran._scroller.horizontalScrollBar()
+    qtbot.waitUntil(lambda: barre.maximum() > 0, timeout=2000)
+    vue = ecran._view
+    assert vue is not None
+    # Un récit du début du fil, avec un lien vers la fin : vue placée sur lui.
+    choix = next(
+        s
+        for s in vue.stories[:20]
+        if any(a.touches(s.id) and a.story_b in {t.id for t in vue.stories[60:]} for a in vue.arcs)
+    )
+    ecran.select(choix.id)
+    ecran._center_on(choix.id)
+    plateau.grab()  # calcule les étiquettes de bord
+    assert plateau._hints, "une étiquette « liens → » doit apparaître au bord"
+    rect, cible = plateau._hints[-1]
+    qtbot.mouseClick(plateau, Qt.MouseButton.LeftButton, pos=rect.center().toPoint())
+    assert ecran._selected == cible
+    x = plateau.dot_center(cible).x()
+    assert barre.value() <= x <= barre.value() + ecran._scroller.viewport().width()

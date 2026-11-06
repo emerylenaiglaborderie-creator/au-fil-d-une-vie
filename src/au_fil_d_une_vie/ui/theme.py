@@ -403,6 +403,22 @@ QPlainTextEdit#editor, QPlainTextEdit#notebook {{
 }}
 QPlainTextEdit#editor:focus, QPlainTextEdit#notebook:focus {{ border-color: {LEAF_TEXT_SOFT}; }}
 
+QScrollArea#boardFrame {{
+    background: {PAPER};
+    border: 1.5px solid {INK_SOFT};
+    border-radius: 3px;
+}}
+QScrollBar:horizontal {{
+    height: 10px;
+    background: transparent;
+}}
+QScrollBar::handle:horizontal {{
+    min-width: 40px;
+    border-radius: 2px;
+    background: {BORDER};
+}}
+QScrollBar::handle:horizontal:hover {{ background: {LEAF_BORDER}; }}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
 QScrollBar:vertical {{
     width: 10px;
     background: transparent;
