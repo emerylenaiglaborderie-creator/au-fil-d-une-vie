@@ -50,6 +50,8 @@ LIGHT: dict[str, str] = {
     "DOTS": "#8A8A8A",  # pointillés des listes et du pied de page
     "LEAF_DOTS": "#6B8F4A",  # bord pointillé des encarts verts
     "LEAF_EMPTY": "#6B6B6B",  # bord gris encre des étiquettes feuilles vides
+    "TAPE": "#EFD45A",  # mètre ruban du graphe (toise des tailles d'enfants)
+    "TAPE_INK": "#2B2B2B",  # graduations et bord du mètre ruban
 }
 
 DARK: dict[str, str] = {
@@ -90,13 +92,17 @@ DARK: dict[str, str] = {
     "DOTS": "#6E6A62",
     "LEAF_DOTS": "#7FA05A",
     "LEAF_EMPTY": "#8A867C",
+    "TAPE": "#C9AE48",
+    "TAPE_INK": "#2B2B2B",
 }
 
 CREAM = SURFACE = ON_RED = INK = INK_SOFT = INK_STRONG = THREAD = THREAD_SOFT = ""
 DOTTED = TRACK = RED = RED_SHADOW = RED_TEXT = LEAF = LEAF_HOVER = LEAF_TEXT = ""
 LEAF_TEXT_SOFT = LEAF_BORDER = LEAF_BORDER_HOVER = LEAF_BULLET = WORD_GREEN = BORDER = ""
 SOFT_GREEN = SOFT_GREEN_BORDER = MUTED = NAV_MUTED = CHIP_OUTLINE_TEXT = DASHED = ""
-ROW_HOVER = INPUT_BORDER = QUOTE = PAPER = WASH = BARK = DOTS = LEAF_DOTS = LEAF_EMPTY = ""
+ROW_HOVER = INPUT_BORDER = QUOTE = PAPER = WASH = BARK = DOTS = LEAF_DOTS = LEAF_EMPTY = TAPE = (
+    TAPE_INK
+) = ""
 DARK_MODE = False
 WASH_OPACITY = 0.4
 TREE_OPACITY = 0.32  # arbre en fond du graphe, discret sous les fils

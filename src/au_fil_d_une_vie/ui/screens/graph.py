@@ -41,7 +41,9 @@ from au_fil_d_une_vie.ui.widgets import (
 
 BOARD_HEIGHT = 470
 MARGIN_X = 96  # place des titres du premier et du dernier récit, et de la fin du fil
-THREAD_FROM_BOTTOM = 150  # sous le fil : titres, proches, repères de mois
+THREAD_FROM_BOTTOM = 128  # milieu du ruban ; dessous : titres et proches
+TAPE_WIDTH = 30.0  # largeur du mètre ruban
+TAPE_WAVE = (5.0, 1100.0)  # ondulation du ruban : amplitude et longueur d'onde (px)
 TITLE_MAX_WIDTH = 160
 WORD_LABELS_MAX = 5  # étiquettes de mots : les liens les plus forts du focus seulement
 MIN_SPACING = 26  # écart minimal entre deux récits ; au-delà, le fil défile
@@ -156,12 +158,22 @@ class GraphBoard(QWidget):
     def _x(self, position: float) -> float:
         return MARGIN_X + position * (self.width() - 2 * MARGIN_X)
 
+    def _tape_y(self, x: float) -> float:
+        """Milieu du ruban à une abscisse : il ondule doucement, comme un mètre posé."""
+        amplitude, wavelength = TAPE_WAVE
+        return self._thread_y() + amplitude * math.sin(2 * math.pi * x / wavelength + 0.6)
+
+    def _mark(self, position: float) -> QPointF:
+        """Marque d'un récit : sur le bord haut du ruban, d'où partent les arcs."""
+        x = self._x(position)
+        return QPointF(x, self._tape_y(x) - TAPE_WIDTH / 2)
+
     def dot_center(self, story_id: int) -> QPointF:
-        """Centre du point d'un récit sur le fil."""
+        """Centre du point d'un récit, sur le bord du mètre ruban."""
         assert self._view is not None
         node = self._view.story(story_id)
         assert node is not None
-        return QPointF(self._x(node.position), self._thread_y())
+        return self._mark(node.position)
 
     def _spacing(self) -> float:
         count = len(self._view.stories) if self._view else 1
@@ -173,14 +185,14 @@ class GraphBoard(QWidget):
     def _title_rect(self, node: StoryNode, width: int) -> QRectF:
         x = self._x(node.position)
         left = min(max(x - width / 2, 4), self.width() - width - 4)
-        return QRectF(left, self._thread_y() + 20, width, 74)
+        return QRectF(left, self._tape_y(x) + TAPE_WIDTH / 2 + 12, width, 74)
 
     def _arc_height(self, arc: Arc) -> float:
         assert self._view is not None
         a, b = self._view.story(arc.story_a), self._view.story(arc.story_b)
         assert a is not None and b is not None
         span = self._x(b.position) - self._x(a.position)
-        ceiling = self._thread_y() - 46  # les arcs restent sous le haut du plateau
+        ceiling = self._thread_y() - TAPE_WIDTH / 2 - 52  # sous le haut du plateau
         return min(ceiling, 26 + span * 0.42)
 
     def _focus(self) -> set[int]:
@@ -191,7 +203,7 @@ class GraphBoard(QWidget):
             return None
         full = self._view.density is Density.FULL
         for node in self._view.stories:
-            center = QPointF(self._x(node.position), self._thread_y())
+            center = self._mark(node.position)
             if math.dist((center.x(), center.y()), (position.x(), position.y())) <= 15:
                 return node.id
             if full and self._title_rect(node, self._title_width()).contains(position):
@@ -241,8 +253,7 @@ class GraphBoard(QWidget):
         if self._view is None or not self._view.stories:
             return
         focus = self._focus()
-        self._paint_months(painter)
-        self._paint_thread(painter)
+        self._paint_tape(painter)
         labels = self._paint_arcs(painter, focus)
         for node in self._view.stories:
             self._paint_story(painter, node, focus)
@@ -255,22 +266,83 @@ class GraphBoard(QWidget):
                 if focused is not None:
                     self._paint_plate(painter, focused)
 
-    def _paint_thread(self, painter: QPainter) -> None:
-        """Le fil : un trait d'encre fin, terminé par une petite boucle et un point rouge."""
-        y = self._thread_y()
-        left, right = MARGIN_X - 40, self.width() - 30.0
-        thread = QPainterPath(QPointF(left, y))
-        thread.lineTo(right - 18, y)
-        thread.cubicTo(
-            QPointF(right + 2, y - 2), QPointF(right - 2, y - 16), QPointF(right - 10, y - 9)
-        )
-        thread.cubicTo(QPointF(right - 16, y - 3), QPointF(right - 6, y + 4), QPointF(right + 8, y))
-        pen = QPen(theme.color(theme.THREAD), 1.6)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        painter.setPen(pen)
+    def _paint_tape(self, painter: QPainter) -> None:
+        """Le mètre ruban : bout coupé en biais à gauche, enroulé à droite, gradué.
+
+        Il rappelle la toise du mur où l'on marque la taille des enfants : chaque récit
+        y est une marque, et les mois y sont imprimés comme les chiffres d'un mètre.
+        """
+        assert self._view is not None
+        half = TAPE_WIDTH / 2
+        left, right = MARGIN_X - 50.0, self.width() - 52.0
+        xs = [left + i * 8.0 for i in range(int((right - left) / 8) + 1)] + [right]
+        top = [QPointF(x, self._tape_y(x) - half) for x in xs]
+        bottom = [QPointF(x, self._tape_y(x) + half) for x in xs]
+        top[0] = top[0] + QPointF(16, 0)  # coupe en biais du bout gauche
+        band = QPainterPath(top[0])
+        for point in top[1:]:
+            band.lineTo(point)
+        for point in reversed(bottom):
+            band.lineTo(point)
+        band.closeSubpath()
+        ink = theme.color(theme.TAPE_INK)
+        outline = QPen(ink, 1.6)
+        outline.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(outline)
+        painter.setBrush(theme.color(theme.TAPE))
+        painter.drawPath(band)
+
+        # Graduations : petites, moyennes tous les 5, longues tous les 10, un peu penchées.
+        painter.save()
+        painter.setClipPath(band)
+        for index, x in enumerate(range(int(left) + 20, int(right) - 4, 7)):
+            # Graduations sur la moitié haute : la moitié basse reste au nom des mois.
+            if index % 10 == 0:
+                length, width = TAPE_WIDTH * 0.5, 1.2
+            elif index % 5 == 0:
+                length, width = TAPE_WIDTH * 0.36, 1.0
+            else:
+                length, width = TAPE_WIDTH * 0.22, 0.9
+            y = self._tape_y(x) - half
+            painter.setPen(QPen(ink, width))
+            painter.drawLine(QPointF(x, y), QPointF(x - length * 0.3, y + length))
+        # Les mois, imprimés sur le ruban à l'endroit où ils commencent.
+        spacing = self._spacing() / 2 if len(self._view.stories) > 1 else 0
+        painter.setFont(self._month_font)
+        for index, mark in enumerate(self._view.months):
+            start = self._x(mark.position) - (spacing if index else 0)
+            middle = self._tape_y(start)
+            if index:
+                painter.setPen(QPen(ink, 1.6))
+                painter.drawLine(QPointF(start, middle - half), QPointF(start, middle + half))
+            painter.setPen(ink)
+            painter.drawText(
+                QRectF(start + 6 if index else left + 24, middle + 1, 140, half - 2),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                month_label(mark.month).upper(),
+            )
+        painter.restore()
+
+        # Le bout droit, enroulé : un rouleau et sa spirale.
+        center = QPointF(right + 4, self._tape_y(right) + 5)
+        radius = TAPE_WIDTH * 0.95
+        painter.setPen(outline)
+        painter.setBrush(theme.color(theme.TAPE))
+        painter.drawEllipse(center, radius, radius)
+        spiral = QPainterPath()
+        turns = 3.2
+        for step in range(161):
+            t = step / 160
+            angle = t * turns * 2 * math.pi
+            r = radius * (0.88 - 0.8 * t)
+            point = center + QPointF(r * math.cos(angle), r * math.sin(angle) * 0.92)
+            if step == 0:
+                spiral.moveTo(point)
+            else:
+                spiral.lineTo(point)
+        painter.setPen(QPen(ink, 1.3))
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawPath(thread)
-        paint_dot(painter, QPointF(right + 12, y), 8, True)
+        painter.drawPath(spiral)
 
     def _paint_arcs(self, painter: QPainter, focus: set[int]) -> list[tuple[QRectF, str]]:
         """Trace les arcs ; renvoie les étiquettes de mots à poser par-dessus."""
@@ -325,7 +397,8 @@ class GraphBoard(QWidget):
         sans sortir du plateau ni descendre sur le fil."""
         for shift in (0, -24, 24, -48, 48, 72):
             candidate = rect.translated(0, shift)
-            inside = candidate.top() >= 6 and candidate.bottom() <= self._thread_y() - 24
+            floor = self._thread_y() - TAPE_WIDTH / 2 - 24
+            inside = candidate.top() >= 6 and candidate.bottom() <= floor
             if inside and not any(candidate.intersects(t) for t in taken):
                 return candidate
         return None
@@ -356,7 +429,7 @@ class GraphBoard(QWidget):
                 after.append((x - right, other))
         painter.setFont(self._person_font)
         metrics = QFontMetrics(self._person_font)
-        y = self._thread_y() - 40
+        y = self._thread_y() - TAPE_WIDTH / 2 - 44
         for side, links in (("left", before), ("right", after)):
             if not links:
                 continue
@@ -399,8 +472,11 @@ class GraphBoard(QWidget):
         painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
     def _paint_story(self, painter: QPainter, node: StoryNode, focus: set[int]) -> None:
-        center = QPointF(self._x(node.position), self._thread_y())
+        center = self._mark(node.position)
         selected = node.id == self._selected
+        # La marque sur le ruban, comme un trait de crayon sur la toise.
+        painter.setPen(QPen(theme.color(theme.TAPE_INK), 2.0 if selected else 1.6))
+        painter.drawLine(center, center + QPointF(0, TAPE_WIDTH * 0.45))
         if selected:
             halo = QColor(theme.RED)
             halo.setAlphaF(0.18)
@@ -449,26 +525,6 @@ class GraphBoard(QWidget):
             Qt.AlignmentFlag.AlignHCenter,
             f"{node.person_name} · {short_date(node.recorded_at)}",
         )
-
-    def _paint_months(self, painter: QPainter) -> None:
-        """Repères de mois : un trait pointillé qui traverse le fil, le mois en dessous."""
-        assert self._view is not None
-        y = self._thread_y()
-        half = self._spacing() / 2 if len(self._view.stories) > 1 else 0
-        pen = QPen(theme.color(theme.DOTS), 1.0)
-        pen.setDashPattern([2.0, 3.0])
-        for index, mark in enumerate(self._view.months):
-            x = self._x(mark.position) - (half if index else 0)
-            if index:
-                painter.setPen(pen)
-                painter.drawLine(QPointF(x, y - 16), QPointF(x, self.height() - 34))
-            painter.setFont(self._month_font)
-            painter.setPen(theme.color(theme.LEAF_TEXT))
-            painter.drawText(
-                QRectF(x + (6 if index else -MARGIN_X + 20), self.height() - 30, 160, 18),
-                Qt.AlignmentFlag.AlignLeft,
-                month_label(mark.month).upper(),
-            )
 
 
 class ThreadOverview(QWidget):
@@ -528,8 +584,11 @@ class ThreadOverview(QWidget):
             start = QPointF(self._x(positions[arc.story_a]), y)
             end = QPointF(self._x(positions[arc.story_b]), y)
             painter.drawPath(arc_path(start, end, min(20.0, (end.x() - start.x()) * 0.3)))
-        painter.setPen(QPen(theme.color(theme.THREAD), 1.2))
-        painter.drawLine(QPointF(4, y), QPointF(self.width() - 4, y))
+        # Le mètre ruban, en miniature.
+        tape = QRectF(4, y - 1, self.width() - 8, 6)
+        painter.setPen(QPen(theme.color(theme.TAPE_INK), 0.8))
+        painter.setBrush(theme.color(theme.TAPE))
+        painter.drawRect(tape)
         for story in self._view.stories:
             selected = story.id == self._selected
             paint_dot(painter, QPointF(self._x(story.position), y), 8 if selected else 4, True)
