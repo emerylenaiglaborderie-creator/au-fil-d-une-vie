@@ -223,8 +223,8 @@ class HerbariumTag(QGraphicsObject):
 
     activated = Signal(int)
 
-    WIDTH = 252.0
-    HEIGHT = 144.0
+    WIDTH = 232.0
+    HEIGHT = 132.0
     CUT = 18.0
     EYELET_Y = 20.0
     SHADOW = QPointF(4, 5)
@@ -251,9 +251,9 @@ class HerbariumTag(QGraphicsObject):
         self._title_font = self._fitted_title_font(spec.title)
 
     def _fitted_title_font(self, title: str) -> QFont:
-        """Titre manuscrit le plus grand possible (46 px au plus) qui tient sur une ligne."""
+        """Titre manuscrit le plus grand possible (42 px au plus) qui tient sur une ligne."""
         available = self.WIDTH - 44
-        for px in range(46, 31, -2):
+        for px in range(42, 29, -2):
             font = theme.font(theme.SCRIPT, px)
             if QFontMetricsF(font).horizontalAdvance(title) <= available:
                 return font
@@ -320,14 +320,14 @@ class HerbariumTag(QGraphicsObject):
         painter.setPen(text)
         painter.setFont(self._title_font)
         painter.drawText(
-            QRectF(left - 2, 30, self.WIDTH - 40, 56),
+            QRectF(left - 2, 28, self.WIDTH - 40, 50),
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             self.spec.title,
         )
         painter.setPen(soft)
         painter.setFont(theme.font(theme.SERIF, 15, italic=True))
         painter.drawText(
-            QRectF(left, 88, self.WIDTH - 40, 28),
+            QRectF(left, 80, self.WIDTH - 40, 26),
             Qt.TextFlag.TextSingleLine,
             self._subtitle,
         )
@@ -717,58 +717,72 @@ class TreeScreen(QWidget):
         )
         intro.setFont(theme.font(theme.SERIF, 19, italic=True))
         intro.setDefaultTextColor(theme.color(theme.MUTED))
-        intro.setTextWidth(420)
+        intro.setTextWidth(470)
         intro.setPos(52, 186)
         self._scene.addItem(intro)
 
     def _tag_specs(self) -> list[TagSpec]:
-        return [
-            TagSpec(
-                self.INTERVIEW,
-                1,
-                _("Interview"),
-                "",
-                anchor=QPointF(680, 228),
-                eyelet=QPointF(560, 300),
-                angle=-4,
-                red=True,
-            ),
-            TagSpec(
-                self.TRACKS,
-                2,
-                _("Les pistes"),
-                "",
-                anchor=QPointF(1040, 176),
-                eyelet=QPointF(1172, 250),
-                angle=3,
-            ),
-            TagSpec(
-                self.STORIES,
-                3,
-                _("Mes récits"),
-                "",
-                anchor=QPointF(712, 446),
-                eyelet=QPointF(484, 478),
-                angle=2.5,
-            ),
-            TagSpec(
-                self.GRAPH,
-                4,
-                _("Au fil des mots"),
-                _("les liens entre tes récits"),
-                anchor=QPointF(1036, 372),
-                eyelet=QPointF(1186, 432),
-                angle=-3,
-            ),
-            TagSpec(
+        """Étiquettes sur une grille de trois rangées, de part et d'autre du feuillage.
+
+        À gauche, le titre puis Interview et Mes récits ; à droite, le Livre de famille
+        (en haut, comme un fruit), Les pistes et Au fil des mots. Chaque rangée se
+        répond d'un côté à l'autre ; les fils ont tous la même longueur, les rotations
+        alternent légèrement.
+        """
+        # Œillets alignés sur deux colonnes et trois rangées ; nœuds posés sur le bord
+        # du feuillage, toujours plus haut que l'œillet pour que l'étiquette pende.
+        left, right = 540.0, 1172.0
+        top, middle, bottom = 100.0, 272.0, 448.0
+        specs = [
+            (
                 self.BOOK,
                 5,
                 _("Livre de famille"),
                 _("le fruit de tes récits"),
-                anchor=QPointF(936, 42),
-                eyelet=QPointF(1182, 84),
-                angle=-2,
+                (QPointF(936, 58), QPointF(right, top)),
+                -1.5,
+                False,
             ),
+            (
+                self.INTERVIEW,
+                1,
+                _("Interview"),
+                "",
+                (QPointF(700, 212), QPointF(left, middle)),
+                -2.0,
+                True,
+            ),
+            (
+                self.TRACKS,
+                2,
+                _("Les pistes"),
+                "",
+                (QPointF(1004, 212), QPointF(right, middle)),
+                1.5,
+                False,
+            ),
+            (
+                self.STORIES,
+                3,
+                _("Mes récits"),
+                "",
+                (QPointF(702, 390), QPointF(left, bottom)),
+                1.5,
+                False,
+            ),
+            (
+                self.GRAPH,
+                4,
+                _("Au fil des mots"),
+                _("les liens entre tes récits"),
+                (QPointF(1030, 386), QPointF(right, bottom)),
+                -1.5,
+                False,
+            ),
+        ]
+        return [
+            TagSpec(section, number, title, subtitle, anchor, eyelet, angle, red)
+            for section, number, title, subtitle, (anchor, eyelet), angle, red in specs
         ]
 
     def showEvent(self, event: QShowEvent) -> None:
