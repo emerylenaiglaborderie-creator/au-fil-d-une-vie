@@ -7,7 +7,8 @@
 - arbre-accueil.png : l'arbre entier sans fil ni points, en grand, pour l'écran Mon arbre ;
 - icone.png (1024 px), icone.ico (Windows), icone.icns (macOS, si iconutil est là) ;
 - logo.png : le logo complet réduit, fond blanc rendu transparent ;
-- lavis.png : le lavis aquarelle décoratif (remplace le filtre SVG de la maquette).
+- lavis.png : le lavis aquarelle décoratif (remplace le filtre SVG de la maquette) ;
+- grain.png : le grain de papier, en motif raccordable (remplace le bruit fractal de la maquette).
 
 Rendre le blanc transparent (« dé-multiplier ») donne, sur n'importe quel fond clair,
 le même résultat que le mode de fusion multiply de la maquette.
@@ -180,6 +181,39 @@ def icns(png: Path, sortie: Path) -> None:
         subprocess.run(["iconutil", "-c", "icns", str(jeu), "-o", str(sortie)], check=True)
 
 
+def grain(taille: int = 256, graine: int = 7) -> QImage:
+    """Grain de papier en niveaux de gris, raccordable dans les deux sens.
+
+    Bruit de valeurs sur une grille périodique, quatre octaves superposées (bruit
+    fractal) : des fibres larges et un grain fin. L'interface le pose en mosaïque
+    à très faible opacité sur le fond crème.
+    """
+    rng = random.Random(graine)
+    octaves = [(8, 0.5), (16, 0.25), (32, 0.15), (64, 0.1)]
+    grilles = {n: [[rng.random() for _ in range(n)] for _ in range(n)] for n, _poids in octaves}
+
+    def lisse(t: float) -> float:
+        return t * t * (3 - 2 * t)
+
+    image = QImage(taille, taille, QImage.Format.Format_ARGB32)
+    for y in range(taille):
+        for x in range(taille):
+            valeur = 0.0
+            for n, poids in octaves:
+                gx, gy = x * n / taille, y * n / taille
+                x0, y0 = int(gx) % n, int(gy) % n
+                x1, y1 = (x0 + 1) % n, (y0 + 1) % n
+                tx, ty = lisse(gx - int(gx)), lisse(gy - int(gy))
+                g = grilles[n]
+                haut = g[y0][x0] + (g[y0][x1] - g[y0][x0]) * tx
+                bas = g[y1][x0] + (g[y1][x1] - g[y1][x0]) * tx
+                valeur += poids * (haut + (bas - haut) * ty)
+            valeur += rng.uniform(-0.08, 0.08)  # le grain fin du papier
+            gris = max(0, min(255, round(valeur * 255)))
+            image.setPixelColor(x, y, QColor(gris, gris, gris))
+    return image
+
+
 def arbre_accueil(seul: QImage) -> QImage:
     """L'arbre seul, tronc compris, assez grand pour l'écran d'accueil sur écran Retina."""
     return blanc_vers_transparent(reduire(seul.copy(ZONE_ICONE), 1000))
@@ -195,6 +229,7 @@ def main() -> None:
     blanc_vers_transparent(reduire(source.copy(ZONE_ARBRE), 520)).save(str(SORTIE / "arbre.png"))
     blanc_vers_transparent(reduire(source.copy(ZONE_LOGO), 520)).save(str(SORTIE / "logo.png"))
     lavis().save(str(SORTIE / "lavis.png"))
+    grain().save(str(SORTIE / "grain.png"))
 
     seul = QImage(str(SOURCE_ARBRE_SEUL))
     if not seul.isNull():

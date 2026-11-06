@@ -194,6 +194,24 @@ def test_les_pistes_ne_debordent_pas_avec_beaucoup_de_proches(grande_famille: Ma
     assert grande_famille.quest.minimumSizeHint().width() <= grande_famille.width()
 
 
+def test_les_proches_a_interroger_ne_sont_jamais_coupes(
+    qtbot: QtBot, window: MainWindow, services: Services
+) -> None:
+    def tous_visibles() -> bool:
+        boutons = window.quest._people.buttons()
+        boite = boutons[0].parentWidget()
+        return all(b.geometry().bottom() < boite.height() for b in boutons)
+
+    window.show()
+    window.show_screen(MainWindow.QUEST)
+    qtbot.waitUntil(tous_visibles, timeout=2000)
+    for nom in NOUVEAUX_PROCHES:
+        services.people.add(nom, "famille")
+    window._after_people()
+    window.show_screen(MainWindow.QUEST)
+    qtbot.waitUntil(tous_visibles, timeout=2000)
+
+
 def test_la_liste_des_proches_defile_au_lieu_de_grandir(
     qtbot: QtBot, grande_famille: MainWindow
 ) -> None:

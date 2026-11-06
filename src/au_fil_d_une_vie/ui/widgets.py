@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import (
     QByteArray,
     QPointF,
+    QRect,
     QRectF,
     QSize,
     Qt,
@@ -181,12 +182,12 @@ class PrimaryButton(QPushButton):
 
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(theme.color(theme.RED_SHADOW if enabled else theme.BORDER))
-        painter.drawRoundedRect(face.translated(0, self.SHADOW), 12, 12)
+        painter.drawRoundedRect(face.translated(0, self.SHADOW), 4, 4)
         top = QColor(theme.RED if enabled else theme.LEAF_BORDER)
         if self.underMouse() and enabled and not pressed:
             top = top.lighter(106)
         painter.setBrush(top)
-        painter.drawRoundedRect(face.translated(0, offset), 12, 12)
+        painter.drawRoundedRect(face.translated(0, offset), 4, 4)
 
         content = face.translated(0, offset)
         painter.setPen(theme.color(theme.ON_RED))
@@ -385,11 +386,12 @@ def section_title(text: str) -> QLabel:
 # Surfaces
 
 
-def soft_shadow(widget: QWidget, blur: int = 36, dy: int = 14, alpha: int = 26) -> None:
+def wash_shadow(widget: QWidget, dx: float = 5, dy: float = 6) -> None:
+    """Ombre pleine décalée, en lavis vert, sans flou (fiches du style herbier)."""
     effect = QGraphicsDropShadowEffect(widget)
-    effect.setBlurRadius(blur)
-    effect.setOffset(0, dy)
-    effect.setColor(QColor(70, 90, 40, alpha))
+    effect.setBlurRadius(0)
+    effect.setOffset(dx, dy)
+    effect.setColor(theme.color(theme.WASH))
     widget.setGraphicsEffect(effect)
 
 
@@ -458,8 +460,54 @@ class Picture(QWidget):
         painter.drawPixmap(QRectF(x, 0, width, height), self._pixmap, QRectF(self._pixmap.rect()))
 
 
+_GRAIN: QPixmap | None = None
+
+
+def paint_paper(painter: QPainter, rect: QRect) -> None:
+    """Fond crème et grain de papier (style herbier).
+
+    Le grain est posé en lumière douce : le gris moyen ne change pas la couleur du
+    fond, seuls ses écarts dessinent la texture, de jour comme de nuit.
+    """
+    global _GRAIN
+    painter.fillRect(rect, theme.color(theme.CREAM))
+    if _GRAIN is None:
+        _GRAIN = QPixmap(str(theme.IMAGES / "grain.png"))
+    if _GRAIN.isNull():
+        return
+    painter.save()
+    painter.setOpacity(theme.GRAIN_OPACITY)
+    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SoftLight)
+    painter.drawTiledPixmap(rect, _GRAIN)
+    painter.restore()
+
+
+class Paper(QWidget):
+    """Bande de papier (en-tête, pied de page) avec un trait d'encre ou de pointillés.
+
+    `edge` : "bottom" (trait d'encre plein, en-tête) ou "top" (pointillés, pied de page).
+    """
+
+    def __init__(self, edge: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._edge = edge
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        painter = QPainter(self)
+        paint_paper(painter, self.rect())
+        if self._edge == "bottom":
+            painter.setPen(QPen(theme.color(theme.INK_SOFT), 1.5))
+            y = self.height() - 1
+        else:
+            pen = QPen(theme.color(theme.DOTS), 1.0)
+            pen.setDashPattern([2.0, 3.0])
+            painter.setPen(pen)
+            y = 0
+        painter.drawLine(QPointF(0, y + 0.5), QPointF(self.width(), y + 0.5))
+
+
 class WashedPage(QWidget):
-    """Fond crème de page avec le lavis aquarelle en haut à droite."""
+    """Page en papier d'herbier, avec le lavis aquarelle en haut à droite."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -468,7 +516,7 @@ class WashedPage(QWidget):
 
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
-        painter.fillRect(self.rect(), theme.color(theme.CREAM))
+        paint_paper(painter, self.rect())
         if not self._wash.isNull():
             painter.setOpacity(theme.WASH_OPACITY)
             painter.drawPixmap(self.width() - self._wash.width() + 140, 60, self._wash)

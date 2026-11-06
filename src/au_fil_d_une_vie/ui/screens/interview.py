@@ -34,7 +34,7 @@ from au_fil_d_une_vie.ui.widgets import (
     outline_button,
     paint_dot,
     section_title,
-    soft_shadow,
+    wash_shadow,
 )
 
 LISTENING_TIPS = (
@@ -160,7 +160,7 @@ class InterviewScreen(QWidget):
     def _build_recorder(self) -> QFrame:
         card = QFrame()
         card.setObjectName("card")
-        soft_shadow(card)
+        wash_shadow(card)
         box = QVBoxLayout(card)
         box.setContentsMargins(34, 30, 34, 34)
         box.setSpacing(20)

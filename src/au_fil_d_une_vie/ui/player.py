@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QAbstractButton, QFrame, QHBoxLayout, QWidget
 from au_fil_d_une_vie.i18n import _, language
 from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.text import clock
-from au_fil_d_une_vie.ui.widgets import icon_pixmap, label, outline_button, paint_dot, soft_shadow
+from au_fil_d_une_vie.ui.widgets import icon_pixmap, label, outline_button, paint_dot, wash_shadow
 
 SPEEDS = (1.0, 1.25, 1.5, 0.75)
 
@@ -94,7 +94,7 @@ class AudioPlayer(QFrame):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("playerCard")
-        soft_shadow(self, blur=28, dy=10, alpha=20)
+        wash_shadow(self, 4, 5)
         row = QHBoxLayout(self)
         row.setContentsMargins(24, 16, 24, 16)
         row.setSpacing(20)

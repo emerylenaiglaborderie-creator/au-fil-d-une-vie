@@ -27,7 +27,7 @@ from au_fil_d_une_vie.ui.widgets import (
     link_button,
     paint_dot,
     section_title,
-    soft_shadow,
+    wash_shadow,
 )
 
 BOARD = QSize(780, 580)
@@ -208,8 +208,8 @@ class GraphBoard(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         frame = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         clip = QPainterPath()
-        clip.addRoundedRect(frame, 20, 20)
-        painter.fillPath(clip, theme.color(theme.SURFACE))
+        clip.addRoundedRect(frame, 3, 3)
+        painter.fillPath(clip, theme.color(theme.PAPER))
         painter.setClipPath(clip)
         if not self._tree.isNull():
             # L'arbre sans fil ni points : rien ne se confond avec les récits.
@@ -235,9 +235,9 @@ class GraphBoard(QWidget):
                     self._paint_word(painter, word.label, center)
             self._paint_isolated_note(painter)
         painter.setClipping(False)
-        painter.setPen(QPen(theme.color(theme.BORDER), 1))
+        painter.setPen(QPen(theme.color(theme.INK_SOFT), 1.5))
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawRoundedRect(frame, 20, 20)
+        painter.drawRoundedRect(frame, 3, 3)
 
     def _thread_pen(self, strong: bool, width: float = 2.0) -> QPen:
         color = QColor(theme.THREAD if strong else theme.THREAD_SOFT)
@@ -285,11 +285,11 @@ class GraphBoard(QWidget):
         paint_dot(painter, center, 26 if selected else 18, filled=node.linked)
 
         rect = self._plate_rect(node)
-        plate = QColor(theme.SURFACE)
+        plate = QColor(theme.PAPER)
         plate.setAlphaF(0.92)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(plate)
-        painter.drawRoundedRect(rect, 8, 8)
+        painter.drawRoundedRect(rect, 3, 3)
         painter.setPen(theme.color(theme.INK))
         painter.setFont(self._plate_font_bold if selected else self._plate_font)
         person_height = QFontMetrics(self._person_font).lineSpacing()
@@ -367,7 +367,7 @@ class GraphScreen(QWidget):
         body.setSpacing(40)
         board_box = QVBoxLayout()
         self._board = GraphBoard()
-        soft_shadow(self._board)
+        wash_shadow(self._board)
         self._board.story_selected.connect(self.select)
         self._board.story_activated.connect(self.story_opened)
         board_box.addWidget(self._board)
@@ -402,7 +402,7 @@ class GraphScreen(QWidget):
     def _build_card(self) -> QFrame:
         card = QFrame()
         card.setObjectName("plainCard")
-        soft_shadow(card)
+        wash_shadow(card)
         box = QVBoxLayout(card)
         box.setContentsMargins(26, 26, 26, 22)
         box.setSpacing(10)

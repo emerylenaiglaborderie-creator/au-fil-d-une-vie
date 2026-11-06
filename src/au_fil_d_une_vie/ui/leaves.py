@@ -57,6 +57,14 @@ class FlowLayout(QLayout):
     def setGeometry(self, rect: QRect) -> None:
         super().setGeometry(rect)
         self._arrange(rect, apply=True)
+        # La hauteur dépend de la largeur (lignes repliées). Les zones de défilement
+        # et les cartes ne la redemandent pas toujours : on l'impose comme hauteur
+        # minimale du widget, que toutes les mises en page respectent.
+        owner = self.parentWidget()
+        if owner is not None and rect.width() > 0:
+            needed = self.heightForWidth(rect.width())
+            if owner.minimumHeight() != needed:
+                owner.setMinimumHeight(needed)
 
     def sizeHint(self) -> QSize:
         return self.minimumSize()

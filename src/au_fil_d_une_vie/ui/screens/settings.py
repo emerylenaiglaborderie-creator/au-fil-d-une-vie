@@ -18,7 +18,7 @@ from au_fil_d_une_vie.ui.widgets import (
     link_button,
     outline_button,
     section_title,
-    soft_shadow,
+    wash_shadow,
 )
 
 THEME_CHOICES = (("auto", "Comme l'ordinateur"), ("light", "Jour"), ("dark", "Nuit"))
@@ -65,7 +65,7 @@ class SettingsScreen(QWidget):
     def _card(self, title: str) -> tuple[QFrame, QVBoxLayout]:
         card = QFrame()
         card.setObjectName("card")
-        soft_shadow(card)
+        wash_shadow(card)
         box = QVBoxLayout(card)
         box.setContentsMargins(30, 26, 30, 26)
         box.setSpacing(12)

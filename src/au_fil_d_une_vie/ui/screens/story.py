@@ -34,7 +34,7 @@ from au_fil_d_une_vie.ui.widgets import (
     outline_button,
     paint_dot,
     section_title,
-    soft_shadow,
+    wash_shadow,
 )
 
 NOTE_SAVE_MS = 600
@@ -179,7 +179,7 @@ class StoryScreen(QWidget):
 
         article = QFrame()
         article.setObjectName("article")
-        soft_shadow(article)
+        wash_shadow(article)
         box = QVBoxLayout(article)
         box.setContentsMargins(56, 44, 56, 28)
         box.setSpacing(12)

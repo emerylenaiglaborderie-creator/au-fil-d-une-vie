@@ -30,7 +30,7 @@ from au_fil_d_une_vie.ui.widgets import (
     label,
     link_button,
     section_title,
-    soft_shadow,
+    wash_shadow,
 )
 
 
@@ -66,7 +66,7 @@ class QuestScreen(QWidget):
 
         self._card = QFrame()
         self._card.setObjectName("card")
-        soft_shadow(self._card)
+        wash_shadow(self._card)
         self._card_layout = QVBoxLayout(self._card)
         self._card_layout.setContentsMargins(34, 32, 34, 30)
         self._card_layout.setSpacing(18)

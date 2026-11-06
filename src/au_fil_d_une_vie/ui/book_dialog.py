@@ -87,11 +87,11 @@ class BookDialog(QDialog):
         area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         area.setFixedHeight(320)
         area.setStyleSheet(
-            f"QScrollArea {{ background: {theme.SURFACE}; border: 1px solid {theme.BORDER};"
-            " border-radius: 14px; }"
+            f"QScrollArea {{ background: {theme.PAPER}; border: 1.5px solid {theme.INK_SOFT};"
+            " border-radius: 3px; }"
         )
         inner = QWidget()
-        inner.setStyleSheet(f"background: {theme.SURFACE};")
+        inner.setStyleSheet(f"background: {theme.PAPER};")
         self._list = QVBoxLayout(inner)
         self._list.setContentsMargins(18, 14, 18, 14)
         self._list.setSpacing(6)

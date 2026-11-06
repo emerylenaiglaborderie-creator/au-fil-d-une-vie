@@ -19,7 +19,7 @@ from au_fil_d_une_vie.ui.widgets import (
     clear_layout,
     eyebrow,
     label,
-    soft_shadow,
+    wash_shadow,
 )
 
 PARENT_CONSENT = (
@@ -93,7 +93,7 @@ class WelcomeScreen(QWidget):
 
         card = QFrame()
         card.setObjectName("card")
-        soft_shadow(card)
+        wash_shadow(card)
         form = QVBoxLayout(card)
         form.setContentsMargins(34, 30, 34, 30)
         form.setSpacing(14)

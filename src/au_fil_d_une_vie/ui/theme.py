@@ -47,6 +47,9 @@ LIGHT: dict[str, str] = {
     "PAPER": "#FFFDF6",  # fiches et étiquettes d'herbier
     "WASH": "#CFE0A0",  # lavis vert des ombres pleines décalées
     "BARK": "#A4827C",  # écorce du tronc de l'aquarelle, pour les racines
+    "DOTS": "#8A8A8A",  # pointillés des listes et du pied de page
+    "LEAF_DOTS": "#6B8F4A",  # bord pointillé des encarts verts
+    "LEAF_EMPTY": "#6B6B6B",  # bord gris encre des étiquettes feuilles vides
 }
 
 DARK: dict[str, str] = {
@@ -84,23 +87,28 @@ DARK: dict[str, str] = {
     "PAPER": "#2A2823",
     "WASH": "#3F5228",
     "BARK": "#B89A92",
+    "DOTS": "#6E6A62",
+    "LEAF_DOTS": "#7FA05A",
+    "LEAF_EMPTY": "#8A867C",
 }
 
 CREAM = SURFACE = ON_RED = INK = INK_SOFT = INK_STRONG = THREAD = THREAD_SOFT = ""
 DOTTED = TRACK = RED = RED_SHADOW = RED_TEXT = LEAF = LEAF_HOVER = LEAF_TEXT = ""
 LEAF_TEXT_SOFT = LEAF_BORDER = LEAF_BORDER_HOVER = LEAF_BULLET = WORD_GREEN = BORDER = ""
 SOFT_GREEN = SOFT_GREEN_BORDER = MUTED = NAV_MUTED = CHIP_OUTLINE_TEXT = DASHED = ""
-ROW_HOVER = INPUT_BORDER = QUOTE = PAPER = WASH = BARK = ""
+ROW_HOVER = INPUT_BORDER = QUOTE = PAPER = WASH = BARK = DOTS = LEAF_DOTS = LEAF_EMPTY = ""
 DARK_MODE = False
 WASH_OPACITY = 0.4
 TREE_OPACITY = 0.5  # arbre en fond du graphe
+GRAIN_OPACITY = 0.55  # grain de papier, en lumière douce (voir widgets.paint_paper)
 
 
 def apply(dark: bool) -> None:
     """Choisit la palette. À appeler avant de construire les widgets."""
-    global DARK_MODE, WASH_OPACITY, TREE_OPACITY
+    global DARK_MODE, WASH_OPACITY, TREE_OPACITY, GRAIN_OPACITY
     globals().update(DARK if dark else LIGHT)
     DARK_MODE = dark
+    GRAIN_OPACITY = 0.16 if dark else 0.55
     WASH_OPACITY = 0.16 if dark else 0.4
     TREE_OPACITY = 0.22 if dark else 0.5
 
@@ -178,21 +186,17 @@ QMainWindow, QScrollArea, QScrollArea > QWidget > QWidget#page {{
 }}
 QScrollArea {{ border: none; }}
 
-QWidget#header {{
-    background: {SURFACE};
-    border-bottom: 1px solid {BORDER};
-}}
-QWidget#footer {{
-    background: {CREAM};
-    border-top: 1px solid {BORDER};
-}}
+/* Style herbier (brief, section 4.5 bis) : papier, traits d'encre, coins quasi droits,
+   ombres pleines décalées (voir widgets.wash_shadow), pointillés. L'en-tête et le pied
+   de page sont des bandes de papier dessinées par widgets.Paper. */
+QWidget#header, QWidget#footer {{ background: transparent; border: none; }}
 QLabel#footerText {{ font-size: 14px; color: {MUTED}; }}
 
 QPushButton#outline {{
     min-height: 44px;
     padding: 0 18px;
     border: 1.5px solid {INK_SOFT};
-    border-radius: 10px;
+    border-radius: 4px;
     background: transparent;
     font-size: 15px;
     font-weight: 500;
@@ -203,7 +207,7 @@ QPushButton#outlineLarge {{
     min-height: 56px;
     padding: 0 24px;
     border: 1.5px solid {INK_SOFT};
-    border-radius: 12px;
+    border-radius: 4px;
     background: transparent;
     font-size: 16px;
     font-weight: 600;
@@ -228,27 +232,22 @@ QPushButton#mutedLink:hover {{ color: {INK}; }}
 
 QPushButton#link:disabled {{ color: {LEAF_BORDER}; }}
 
-QFrame#consent {{
+QFrame#consent, QFrame#softCard {{
     background: {SOFT_GREEN};
-    border: 1px solid {SOFT_GREEN_BORDER};
-    border-radius: 14px;
-}}
-QFrame#softCard {{
-    background: {SOFT_GREEN};
-    border: 1px solid {SOFT_GREEN_BORDER};
-    border-radius: 18px;
+    border: 1.5px dashed {LEAF_DOTS};
+    border-radius: 3px;
 }}
 QFrame#plainCard {{
-    background: {SURFACE};
-    border: 1px solid {BORDER};
-    border-radius: 18px;
+    background: {PAPER};
+    border: 1.5px solid {INK_SOFT};
+    border-radius: 3px;
 }}
 QCheckBox::indicator {{
     width: 18px;
     height: 18px;
     border: 1.5px solid {INK_SOFT};
-    border-radius: 4px;
-    background: {SURFACE};
+    border-radius: 2px;
+    background: {PAPER};
 }}
 QCheckBox::indicator:checked {{
     border-color: {RED_SHADOW};
@@ -295,7 +294,7 @@ QPushButton#link:hover {{ color: {INK}; }}
 QPushButton#leafToggle {{
     min-height: 44px;
     padding: 0 18px;
-    border: 1.5px solid {LEAF_BORDER};
+    border: 1.5px solid {LEAF_EMPTY};
     {_LEAF_RADII}
     background: transparent;
     font-size: 16px;
@@ -309,20 +308,15 @@ QPushButton#leafToggle:checked {{
     color: {LEAF_TEXT};
 }}
 
-QFrame#card {{
-    background: {SURFACE};
-    border: 1px solid {BORDER};
-    border-radius: 20px;
+QFrame#card, QFrame#tile, QFrame#playerCard, QFrame#article {{
+    background: {PAPER};
+    border: 1.5px solid {INK_SOFT};
+    border-radius: 3px;
 }}
-QFrame#tile {{
-    background: {SURFACE};
-    border: 1px solid {BORDER};
-    border-radius: 16px;
-}}
-QFrame#tile:hover {{ border-color: {LEAF_BORDER_HOVER}; }}
+QFrame#tile:hover {{ background: {LEAF_HOVER}; }}
 QFrame#row {{
     border: none;
-    border-bottom: 1px solid {BORDER};
+    border-bottom: 1px dashed {DOTS};
     border-radius: 0;
     background: transparent;
 }}
@@ -341,7 +335,7 @@ QFrame#leaf_filled, QFrame#leaf_filled_small {{
 }}
 QFrame#leaf_outline, QFrame#leaf_outline_small {{
     background: transparent;
-    border: 1px solid {LEAF_BORDER};
+    border: 1px solid {LEAF_EMPTY};
 }}
 QFrame#leaf_proposed, QFrame#leaf_proposed_small, QFrame#leaf_add {{
     background: transparent;
@@ -396,26 +390,16 @@ QLineEdit#search {{
     background: transparent;
 }}
 
-QFrame#storyRow {{ border: none; border-radius: 12px; background: transparent; }}
+QFrame#storyRow {{ border: none; border-radius: 3px; background: transparent; }}
 QFrame#storyRow:hover {{ background: {ROW_HOVER}; }}
-QFrame#relatedRow {{ border: none; border-radius: 10px; background: transparent; }}
+QFrame#relatedRow {{ border: none; border-radius: 3px; background: transparent; }}
 QFrame#relatedRow:hover {{ background: {LEAF_HOVER}; }}
 
-QFrame#playerCard {{
-    background: {SURFACE};
-    border: 1px solid {BORDER};
-    border-radius: 16px;
-}}
-QFrame#article {{
-    background: {SURFACE};
-    border: 1px solid {BORDER};
-    border-radius: 20px;
-}}
 QPlainTextEdit#editor, QPlainTextEdit#notebook {{
     padding: 10px 12px;
-    border: 1px solid {INPUT_BORDER};
-    border-radius: 14px;
-    background: {SURFACE};
+    border: 1px solid {DASHED};
+    border-radius: 3px;
+    background: {PAPER};
 }}
 QPlainTextEdit#editor:focus, QPlainTextEdit#notebook:focus {{ border-color: {LEAF_TEXT_SOFT}; }}
 
@@ -425,7 +409,7 @@ QScrollBar:vertical {{
 }}
 QScrollBar::handle:vertical {{
     min-height: 40px;
-    border-radius: 5px;
+    border-radius: 2px;
     background: {BORDER};
 }}
 QScrollBar::handle:vertical:hover {{ background: {LEAF_BORDER}; }}

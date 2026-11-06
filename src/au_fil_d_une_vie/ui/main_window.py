@@ -35,6 +35,7 @@ from au_fil_d_une_vie.ui.text import plural
 from au_fil_d_une_vie.ui.tracks_dialog import TracksDialog
 from au_fil_d_une_vie.ui.widgets import (
     MiniTree,
+    Paper,
     SectionMark,
     ThreadProgress,
     WashedPage,
@@ -284,9 +285,8 @@ class MainWindow(QMainWindow):
         return area
 
     def _header(self) -> QWidget:
-        header = QWidget()
+        header = Paper("bottom")  # papier, séparé du contenu par un trait d'encre
         header.setObjectName("header")
-        header.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         row = QHBoxLayout(header)
         row.setContentsMargins(48, 0, 48, 0)
         row.setSpacing(12)
@@ -319,9 +319,8 @@ class MainWindow(QMainWindow):
         return header
 
     def _footer(self) -> QWidget:
-        footer = QWidget()
+        footer = Paper("top")  # papier, séparé par une ligne pointillée
         footer.setObjectName("footer")
-        footer.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         row = QHBoxLayout(footer)
         row.setContentsMargins(48, 10, 48, 10)
         row.setSpacing(12)
