@@ -1,12 +1,20 @@
 # Modèle de données
 
-Base SQLite locale, accédée uniquement par la couche `repositories/` avec le module standard `sqlite3` (SQL écrit à la main, requêtes paramétrées). Schéma : [`0001_initial.sql`](../src/au_fil_d_une_vie/repositories/migrations/0001_initial.sql), complété par les migrations suivantes dont [`0004_sync.sql`](../src/au_fil_d_une_vie/repositories/migrations/0004_sync.sql) (préparation de la synchronisation, voir plus bas). Le diagramme ne montre pas la colonne `uuid` ajoutée par cette migration.
+Base SQLite locale, accédée uniquement par la couche `repositories/` avec le module standard `sqlite3` (SQL écrit à la main, requêtes paramétrées). Schéma : [`0001_initial.sql`](../src/au_fil_d_une_vie/repositories/migrations/0001_initial.sql), complété par les migrations suivantes :
+
+| Migration | Contenu |
+|---|---|
+| `0002_follow_ups.sql` | Relances « Pour creuser » de chaque question |
+| `0003_in_book.sql` | Choix des récits du livre de famille |
+| [`0004_sync.sql`](../src/au_fil_d_une_vie/repositories/migrations/0004_sync.sql) | Préparation de la synchronisation (voir plus bas) ; le diagramme ne montre pas les colonnes `uuid` |
+| [`0005_family_name.sql`](../src/au_fil_d_une_vie/repositories/migrations/0005_family_name.sql) | Nom de famille facultatif du profil |
 
 ```mermaid
 erDiagram
     profile {
         int id PK "toujours 1"
         text first_name
+        text family_name "facultatif"
         int under_15
         text parental_consent_at "obligatoire si under_15"
     }

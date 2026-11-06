@@ -6,6 +6,6 @@
 - Architecture : `ui/` ne parle qu'à `services/`, seuls les `repositories/` touchent SQLite.
 - Aucune requête réseau hors téléchargement initial des modèles (explicite et refusable).
 - Aucune vraie voix ni donnée réelle dans le dépôt : jeu de démo fictif uniquement.
-- Interface : **PySide6** (QSS + QPainter pour les composants maison, QThread pour les tâches longues).
+- Interface : **PySide6** (QSS + QPainter pour les composants maison ; tâches longues dans des threads de travail reliés à l'interface par des signaux Qt, voir `ui/bridge.py`).
 - Base : module `sqlite3`, SQL écrit à la main, pas d'ORM, `foreign_keys = ON`, requêtes paramétrées.
 - Commandes : `uv run pytest`, `uv run ruff check .`, `uv run ruff format .`, `uv run mypy`.

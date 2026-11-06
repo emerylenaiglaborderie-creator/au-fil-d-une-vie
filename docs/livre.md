@@ -4,7 +4,7 @@ Le livre rassemble les récits choisis en un PDF à lire, imprimer ou offrir. Ex
 
 ## Choisir les récits
 
-- Un récit entre dans le livre par un **ajout volontaire** : bouton « Ajouter au livre de famille » sur sa fiche, ou case à cocher dans la fenêtre « Livre de famille » (en-tête de l'application).
+- Un récit entre dans le livre par un **ajout volontaire** : bouton « Ajouter au livre de famille » sur sa fiche, ou case à cocher dans la fenêtre « Livre de famille » (étiquette N° 5 de l'arbre d'accueil).
 - Seuls les récits **transcrits et visibles** peuvent y entrer. Masquer un récit le retire de fait du livre.
 - Le texte utilisé est la **version livre** si elle existe, sinon la transcription.
 

@@ -4,7 +4,7 @@ Document de référence : décisions prises et direction artistique (DA). À lir
 
 Conventions de travail : répondre et documenter en français, ton professionnel et concis, ne jamais utiliser de tiret cadratin dans les textes, commentaires et documents.
 
-Maquette de référence (artefact privé, 5 écrans) : https://claude.ai/artifact/EnoUtgkJpUAg7S6kQz9kCv
+Maquette de référence (artefact privé, 6 écrans, accueil en arbre) : https://claude.ai/artifact/EnoUtgkJpUAg7S6kQz9kCv. L'application s'en est écartée sur plusieurs points (section 4) ; ce brief décrit ce qui a été décidé et réalisé.
 
 ---
 
@@ -77,7 +77,7 @@ Modèles Whisper et spaCy : **téléchargés au premier lancement** (écran de p
 - Le fil, les points rouges, les étiquettes feuilles et l'onde se dessinent avec `QPainter` / `QPainterPath`.
 - Les filtres SVG de la maquette (aquarelle) sont remplacés par des PNG pré-rendus.
 - Polices embarquées avec `QFontDatabase.addApplicationFont`.
-- Graphe dans `QGraphicsScene`, tâches longues dans `QThread`, tests d'interface avec pytest-qt.
+- Arbre d'accueil dans une `QGraphicsScene` ; tâches longues dans des threads de travail dont les signaux Qt ramènent les résultats à l'interface (voir [architecture.md](architecture.md)) ; tests d'interface avec pytest-qt.
 
 Raisons : client lourd défendable devant le jury, un seul langage, audio natif via QtMultimedia, pas de dépendance à un moteur web par système. pywebview est écarté.
 
@@ -125,77 +125,73 @@ Adaptée au public **12 à 25 ans** : ton direct et chaleureux, tutoiement, voca
 Motif central, issu du **logo** (fil noir fin, points rouges, arbre, feuilles vertes) : **un fil continu qui relie des points rouges**. Il sert de séparateur, de barre de progression, d'onde sonore, de liste « voir aussi » et de lien dans le graphe.
 
 ### 4.2 Logo
-- Logo « Au fil d'une vie » : texte manuscrit, arbre à fil avec points rouges et feuilles.
-- Fichier source : `assets/logo/logo-complet.png`.
-- Deux déclinaisons utilisées dans la maquette : **logo complet** (barre latérale de l'écran Récits) et **arbre seul** (en-tête de toutes les pages, aside de l'écran Quête, fond du Graphe à opacité 0,5 en `multiply`). L'arbre seul reste à extraire.
+- Logo « Au fil d'une vie » : texte manuscrit, arbre à fil avec points rouges et feuilles. Fichiers sources : `assets/logo/logo-complet.png`, `assets/logo/arbre-seul.png`.
+- Déclinaisons générées par `scripts/generer_images.py` (fond blanc rendu transparent) : arbre de l'accueil, mini arbre de l'en-tête, logo de l'écran de premier lancement, icône de l'application.
+- Le logo complet n'apparaît plus dans les colonnes des écrans : l'arbre est devenu l'accueil.
 
 ### 4.3 Couleurs
 
-| Rôle | Valeur |
+| Rôle | Valeur (Jour) |
 |---|---|
-| Fond crème | `#FDFCF8` |
-| Encre (texte) | `#2F2F2F` / `#3B3B3B` |
+| Fond crème (papier) | `#FDFCF8`, avec un grain très fin |
+| Fiches et étiquettes | papier `#FFFDF6` |
+| Encre (texte, traits) | `#2F2F2F` / `#3B3B3B` |
 | Fil | `#444444` |
-| Rouge principal (points, boutons) | `#C73A45` |
+| Rouge principal (points, boutons, fil des liens) | `#C73A45` |
 | Rouge ombre (bas des boutons) | `#8F2530` |
 | Rouge texte | `#B0303B` |
 | Vert feuille (étiquettes) | `#D5E6AB` / `#CFE3A0` |
 | Vert texte | `#2F5A1C` / `#3E6B2A` |
-| Vert carte douce | `#F1F6E4` / `#DCE7C3` |
-| Bordures | `#E3E6D8` |
-| Texte secondaire | `#5B5B5B` / `#555555` |
-| Cartes | blanc `#FFFFFF` |
+| Lavis vert (ombres pleines décalées) | `#CFE0A0` |
+| Encarts verts | fond `#F1F6E4`, pointillés `#6B8F4A` |
+| Pointillés des listes | `#8A8A8A` |
+| Écorce (racines de l'arbre) | `#A4827C` |
+| Mètre ruban (graphe) | `#EFD45A`, graduations `#2B2B2B` |
+
+Une palette Nuit reprend chaque rôle (`ui/theme.py`).
 
 ### 4.4 Typographies
-- **Sacramento** (manuscrite) : titres d'écran, accroches, noms de personnes en signature (« Mamie Yvonne raconte », « Bonjour Camille », « Au fil des mots »). Grandes tailles (jusqu'à 96 px pour le titre du graphe). À utiliser **en touches**, jamais pour de longs textes.
-- **Jost** (sans-serif géométrique) : interface (navigation, boutons, métadonnées, étiquettes).
-- **Lora** (serif) : le **contenu des récits** (questions, extraits, transcription), souvent en italique pour les citations. La question de l'interview est en Lora 52 px.
-- Polices à **embarquer** dans l'application (pas de CDN, tout reste local).
+- **Sacramento** (manuscrite) : titres d'écran, accroches, noms des proches (racines de l'arbre, « Mamie Yvonne raconte »). Grandes tailles, **en touches**, jamais pour de longs textes.
+- **Jost** (sans-serif géométrique) : interface (boutons, métadonnées, mois du mètre ruban).
+- **Lora** (serif) : le **contenu des récits** (questions, extraits, transcription), souvent en italique.
+- Polices **embarquées** (licence OFL), pas de CDN.
 
-### 4.5 Composants et motifs
-- **Boutons principaux** : rouge `#C73A45`, rayon 12, ombre pleine `0 3px 0 #8F2530` (effet relief, s'enfonce au clic).
-- **Étiquettes mots-clés « feuille »** : `border-radius: 14px 2px 14px 2px` (deux coins arrondis, deux presque droits), fond vert `#D5E6AB`, texte vert foncé. **Rempli** quand le mot est partagé avec d'autres récits, **contour** sinon.
-- **Cartes blanches** : rayon 18 à 20, ombre douce, bordure `#E3E6D8`.
-- **Navigation** : en-tête blanc, liens Ma quête / Interview / Récits / Graphe, le lien actif porte un **petit point rouge**, bouton « Livre de famille » à droite, arbre du logo à gauche.
-- **Boutons à bascule « feuille »** pour choisir la personne à interroger.
-- **Séparateur** : fil avec boucle se terminant par un point rouge.
-- **Surlignage vert « marqueur »** sur les mots-clés dans le texte d'un récit.
-- **Lavis aquarelle** : fond décoratif sur plusieurs pages, créé dans la maquette avec un filtre SVG (`feTurbulence` + `feDisplacementMap`). **En Qt, le remplacer par un PNG pré-rendu.**
-- **Pied de page constant** : « Tout reste à la maison. Rien n'est envoyé sur Internet. »
-- Points de progression : **point rouge plein = fait**, **point vide (contour) = à faire**.
-- Récit isolé (sans lien) dans le graphe : point **blanc à contour rouge** avec la mention « pas encore de lien ».
+### 4.5 Style herbier et composants
+Tous les écrans partagent le langage d'une **planche d'herbier** à l'encre :
+- **Papier** : fond crème avec un grain fin (PNG raccordable, posé en lumière douce).
+- **En-tête** : séparé du contenu par un trait d'encre ; à droite, le nom de la section avec un point rouge et le **mini arbre cliquable** qui ramène à l'accueil. Sur l'arbre : résumé de la famille et accès aux réglages.
+- **Fiches** : fond papier, bord d'encre 1,5 px, coins quasi droits (3 px), **ombre pleine décalée** de lavis vert, aucune ombre floue.
+- **Encarts verts** (consentement, conseils) : bord pointillé. **Listes** : séparateurs pointillés. **Pied de page** : ligne pointillée.
+- **Boutons** : coins presque droits (4 px) ; le bouton principal reste rouge avec son ombre pleine `0 3px 0 #8F2530`.
+- **Étiquettes mots-clés « feuille »** (deux coins arrondis, deux presque droits) : remplies si le mot est partagé, bord gris encre sinon.
+- **Rameaux d'encre** décoratifs (tige effilée, feuilles en lavis vert décalé, bourgeon rouge) dans les zones vides, jamais derrière du texte.
+- **Séparateur** : fil avec boucle se terminant par un point rouge. **Surlignage « marqueur »** vert sur les mots-clés dans le texte d'un récit.
+- Points de progression : **point rouge plein = fait**, **point vide = à faire**.
+- **Pied de page constant** : « Tout reste sur cet ordinateur. Rien n'est envoyé en ligne. », qui deviendra « Tout reste à la maison. Rien n'est envoyé sur Internet. » avec la synchronisation (section 7).
 
-### 4.6 Les cinq écrans (maquette, 1360 px de large)
+### 4.6 Les écrans
 
-**1. Ma quête (accueil)**
-- Hero Sacramento « Bonjour Camille ».
-- Carte « Prochaine piste » : thème (ex. Musique), question « Quelle chanson te rappelle ta jeunesse ? », « À poser à » avec boutons bascule feuille (Mamie Yvonne, Papa, Tonton Alain, Tata Nadine), bouton rouge « Lancer l'interview », lien « Une autre piste ».
-- Grille « Les pistes à explorer » : 6 tuiles (Enfance 3/6, Rencontres 1/4, Cuisine 1/5, Métier 1/4, Musique, Fêtes à démarrer) avec points rouges pleins et vides.
-- Aside : arbre du logo, « ton arbre pousse », « 6 récits recueillis auprès de 3 personnes », liste des personnes avec points (Mamie Yvonne 3, Papa 2, Tonton Alain 1, Tata Nadine « Pas encore interrogée »).
+Détails et choix techniques : [interface.md](interface.md) et [graphe.md](graphe.md).
 
-**2. Interview (enregistrement)**
-- Eyebrow « Enfance · Piste en cours », accroche Sacramento « Pose-lui la question... », question en Lora 52 px.
-- Sélecteur « Tu interroges » et **bloc de consentement** : case « Mamie Yvonne sait qu'elle est enregistrée et est d'accord... ».
-- Carte enregistreur : état « En cours », chrono (02:14), **forme d'onde dessinée comme un fil** avec un point rouge au bout, ligne pointillée au repos. Boutons Pause / Terminer / Recommencer.
-- Aside : « Pour creuser » (3 relances), « Conseils d'écoute », « D'autres pistes » (4 questions).
+**0. Mon arbre (accueil, sans menu)**
+- « Bonjour Camille » en Sacramento, sur l'aquarelle de l'arbre du logo.
+- **Cinq étiquettes d'herbier** numérotées, pendues au feuillage par un fil noué sur un point rouge, sur deux colonnes et trois rangées : N° 1 Interview (étiquette rouge, prochaine piste), N° 2 Les pistes, N° 3 Mes récits, N° 4 Au fil des mots, N° 5 Livre de famille (en haut, comme un fruit). Elles se balancent au survol et au focus clavier, et apparaissent en fondu.
+- **Racines** effilées et sinueuses portant le nom des proches, écrit le long de la racine ; leurs récits y sont des perles rouges. Clic : les récits du proche.
 
-**3. Récits (bibliothèque)**
-- Titre « Mes récits », bouton « Nouvelle interview », logo complet dans l'aside.
-- **Fil vertical** (SVG, courbes et boucles) avec points rouges, six entrées à hauteur fixe de 156 px, de la plus récente à la plus ancienne : école / Yvonne (12 oct.), Papi / Yvonne (9 oct.), jour d'école / Papa (5 oct.), plat / Papa (30 sept.), travail / Alain (27 sept.), étés / Yvonne (20 sept.).
-- Chaque entrée : thème, métadonnées (« N liens »), extrait en Lora italique, étiquettes feuilles (partagées = remplies).
+**1. Les pistes** (étiquette N° 2) : prochaine piste et question, proches à interroger (boutons feuille qui passent à la ligne), « Lancer l'interview », pistes à explorer avec leurs points, personnes à interroger.
 
-**4. Fiche récit**
-- Lien retour « Récits », eyebrow « Enfance · 12 oct. 2026 · 4 min 12 », Sacramento « Mamie Yvonne raconte », titre = la question.
-- Lecteur audio : bouton lecture rouge, **progression en fil** (38 %).
-- Onglets « Version livre » / « Transcription brute », action « Corriger le texte ».
-- Texte avec surlignages verts (école, bourg, sabots, institutrice, craie), séparateur fil à boucle.
-- Aside : « Mots-clés » (étiquettes feuilles), « Voir aussi » (liste verticale en fil avec points rouges), « Mon carnet » (zone de texte « Ce que j'en retiens »), bouton « Ajouter au livre de famille ».
+**2. Interview** : question en grand, choix du proche, **consentement** à cocher avant chaque enregistrement, enregistreur avec l'**onde dessinée comme un fil**, relances « Pour creuser », conseils d'écoute.
 
-**5. Graphe des liens**
-- Titre Sacramento « Au fil des mots » (96 px), case « Afficher les mots communs ».
-- Plateau 780 x 580 avec l'arbre du logo en fond (opacité 0,5, multiply).
-- **Fils courbes** entre récits, récit sélectionné avec fils plus épais, **points rouges** pour les récits, **étiquettes feuilles** pour les mots communs (bourg, sabots, ferme, école, institutrice, craie), plaques de libellés.
-- Panneau « récit sélectionné » avec la liste des récits liés, légende.
+**3. Mes récits** : **fil vertical** des récits avec points rouges, recherche, onglets par piste, extraits et étiquettes feuilles.
+
+**4. Fiche récit** : écoute avec progression en fil, version livre et transcription brute, correction, mots-clés, « Voir aussi », « Mon carnet », ajout au livre, masquer, supprimer.
+
+**5. Au fil des mots (graphe)**
+- Les récits sont des marques sur un **mètre ruban** (rappel de la toise des tailles d'enfants), dans l'ordre où ils ont été recueillis ; les mois sont imprimés sur le ruban ; bout gauche coupé en biais, bout droit enroulé.
+- Les liens sont **cousus** : fil rouge pour le récit choisi, faufilage en pointillés pour les autres ; mots partagés sur de petites étiquettes de papier à œillet.
+- **Paliers** : tout est affiché jusqu'à 15 récits, puis fil compact (titre au survol, 3 liens forts par récit), puis fil qui défile avec une vue d'ensemble. **Filtres** par proche, piste ou mot.
+
+**6. Réglages** (depuis l'arbre) : prénom et nom de famille, thème, langue, proches, pistes, données, modèle de transcription.
 
 ### 4.7 Ton éditorial de l'interface
 - Tutoiement, phrases courtes, chaleureuses, jamais infantilisantes.
@@ -205,15 +201,22 @@ Motif central, issu du **logo** (fil noir fin, points rouges, arbre, feuilles ve
 
 ---
 
-## 5. Ordre de travail suggéré
-1. Initialiser le dépôt : `pyproject.toml`, `uv`, structure `ui/ services/ repositories/ tests/ docs/`, CI GitHub Actions (3 OS).
-2. Modèle de données SQLite + repositories + tests.
-3. `Transcriber` + faster-whisper, avec file d'attente et progression.
-4. `KeywordService` (spaCy, TF-IDF) puis `LinkService` (poids par rareté) + tests sur le jeu de démo.
-5. Graphe (networkx) et enregistrement audio.
-6. Construire l'interface écran par écran en suivant la DA ci-dessus.
-7. Export « livre de famille » (ReportLab).
-8. Documentation (`docs/`, README, captures, démo), jeu de données fictif, polish.
+## 5. État d'avancement
+
+| Étape | État |
+|---|---|
+| Dépôt, CI trois systèmes, base SQLite, repositories, tests | fait |
+| Transcription locale (faster-whisper) avec file d'attente | fait |
+| Mots-clés (spaCy, TF-IDF) et liens pondérés par la rareté | fait |
+| Interface : arbre d'accueil, style herbier, tous les écrans, thème Nuit, anglais | fait |
+| Graphe en mètre ruban, paliers, défilement, filtres | fait |
+| Livre de famille PDF (ReportLab) | fait (sans le style herbier) |
+| Préparation de la synchronisation (UUID, journal des modifications) | fait |
+| Serveur familial (PostgreSQL, API FastAPI, appairage) | à faire (section 7.6, étape 2) |
+| Synchronisation client et serveur | à faire |
+| Boîtier Raspberry Pi | à faire (bonus) |
+
+L'interface est figée : les prochaines étapes portent sur le serveur familial et la synchronisation.
 
 ## 6. Base de données (décision du 3 novembre 2026)
 
@@ -287,7 +290,7 @@ Le boîtier laisse à chaque famille le choix de son niveau de protection, selon
 - L'application fonctionne hors connexion quel que soit le niveau, la synchronisation reprend dès que le serveur est joignable.
 
 ### 7.6 Ordre de réalisation
-1. Migration des identifiants vers UUID et colonnes de synchronisation dans SQLite.
+1. Migration des identifiants vers UUID et colonnes de synchronisation dans SQLite (fait : UUID, journal `sync_outbox` tenu par des déclencheurs, `SyncRepository`).
 2. Serveur familial (PostgreSQL, API, appairage) sous Docker sur le Mac.
 3. Synchronisation client et serveur, avec scénarios de conflits testés.
 4. Déploiement sur le Pi et démarrage automatique.

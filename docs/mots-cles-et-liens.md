@@ -18,7 +18,7 @@ Seuls les mots **validés** des récits **visibles** comptent (`services/links.p
 
 - Poids d'un mot : `ln(1 + N / df)`. Un mot partagé par deux récits seulement crée un lien plus fort qu'un mot présent dans presque tous.
 - Poids d'un lien entre deux récits : somme des poids de leurs mots communs.
-- Un récit sans aucun mot commun est **isolé** (« pas encore de lien » dans le graphe).
+- Un récit sans aucun mot commun est **isolé** : point vide sur le mètre ruban du graphe ([graphe.md](graphe.md)).
 
 Ce choix a été préféré à l'indice de Jaccard, qui traite tous les mots à égalité : avec la pondération par rareté, « institutrice » relie plus fortement que « famille ».
 
@@ -32,3 +32,5 @@ Ce choix a été préféré à l'indice de Jaccard, qui traite tous les mots à 
 | École, Papi et Étés (Yvonne) | bourg | 1,10 |
 
 Le récit du garage (Tonton Alain) reste isolé.
+
+Dans le graphe, la force d'un lien se lit à l'épaisseur du fil rouge et à l'ordre des mots sur son étiquette (le plus rare d'abord). Les filtres ne modifient pas ces poids : ils sont toujours calculés sur toute la famille.
