@@ -11,10 +11,14 @@ Pour rester lisible quel que soit le nombre de récits, l'affichage change de pa
 * au-delà, le fil est compact : titres au survol, et chaque récit ne montre que ses
   `STRONG_PER_STORY` liens les plus forts ; tous ses liens apparaissent quand on le
   sélectionne. Aucun récit n'est jamais retiré du fil.
+
+Les filtres (un proche, une piste, un mot) ne gardent que les récits qui
+correspondent. Les liens sont calculés sur toute la famille, puis restreints aux
+récits affichés : la force d'un lien ne change pas quand on filtre.
 """
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import StrEnum
 
@@ -69,12 +73,43 @@ class MonthMark:
 
 
 @dataclass(frozen=True, slots=True)
+class GraphFilter:
+    """Filtres du graphe ; None : pas de filtre sur ce critère."""
+
+    person_id: int | None = None
+    theme_id: int | None = None
+    keyword_id: int | None = None
+
+    @property
+    def active(self) -> bool:
+        return any(v is not None for v in (self.person_id, self.theme_id, self.keyword_id))
+
+
+@dataclass(frozen=True, slots=True)
+class FilterOption:
+    id: int
+    label: str
+    count: int  # récits concernés
+
+
+@dataclass(frozen=True, slots=True)
+class FilterOptions:
+    """Choix proposés par les filtres : seulement ce qui a des récits visibles."""
+
+    people: list[FilterOption]
+    themes: list[FilterOption]
+    words: list[FilterOption]  # mots partagés par au moins deux récits, les plus présents d'abord
+
+
+@dataclass(frozen=True, slots=True)
 class GraphView:
     stories: list[StoryNode]  # dans l'ordre du fil
     arcs: list[Arc]  # du plus fort au plus faible
     months: list[MonthMark]
     density: Density
     groups: int  # groupes de récits reliés entre eux (composantes connexes)
+    total: int = 0  # récits visibles avant les filtres
+    keyword_ids: dict[str, int] = field(default_factory=dict)  # mot affiché -> identifiant
 
     def story(self, story_id: int) -> StoryNode | None:
         return next((s for s in self.stories if s.id == story_id), None)
@@ -121,20 +156,71 @@ class GraphService:
         self._stories = stories
         self._keywords = keywords
 
-    def build(self) -> GraphView:
+    def filter_options(self) -> FilterOptions:
+        rows = self._stories.list_rows(include_hidden=False)
+        visible = {r.story.id for r in rows}
+        people: dict[int, tuple[str, int]] = {}
+        themes: dict[int, tuple[str, int]] = {}
+        for row in rows:
+            name, count = people.get(row.story.person_id, (row.person_name, 0))
+            people[row.story.person_id] = (name, count + 1)
+            label, count = themes.get(row.theme_id, (row.theme_label, 0))
+            themes[row.theme_id] = (label, count + 1)
+        by_word: dict[int, int] = defaultdict(int)
+        for story_id, keyword_id in self._keywords.validated_pairs():
+            if story_id in visible:
+                by_word[keyword_id] += 1
+        shared = {kw: n for kw, n in by_word.items() if n >= 2}
+        labels = {k.id: k.label for k in self._keywords.get_many(shared).values()}
+
+        def options(items: dict[int, tuple[str, int]]) -> list[FilterOption]:
+            return sorted(
+                (FilterOption(i, label, n) for i, (label, n) in items.items()),
+                key=lambda o: o.label.casefold(),
+            )
+
+        return FilterOptions(
+            people=options(people),
+            themes=options(themes),
+            words=sorted(
+                (FilterOption(kw, labels[kw], n) for kw, n in shared.items() if kw in labels),
+                key=lambda o: (-o.count, o.label.casefold()),
+            ),
+        )
+
+    def build(self, filters: GraphFilter | None = None) -> GraphView:
+        filters = filters or GraphFilter()
+        all_rows = self._stories.list_rows(include_hidden=False)
+        visible_all = {r.story.id for r in all_rows}
+        # Liens de toute la famille : leur force ne dépend pas des filtres.
+        all_pairs = [(s, k) for s, k in self._keywords.validated_pairs() if s in visible_all]
+        with_word = (
+            {s for s, k in all_pairs if k == filters.keyword_id}
+            if filters.keyword_id is not None
+            else None
+        )
         rows = sorted(
-            self._stories.list_rows(include_hidden=False),
+            (
+                r
+                for r in all_rows
+                if (filters.person_id is None or r.story.person_id == filters.person_id)
+                and (filters.theme_id is None or r.theme_id == filters.theme_id)
+                and (with_word is None or r.story.id in with_word)
+            ),
             key=lambda r: (r.story.recorded_at, r.story.id),
         )
         visible = {r.story.id for r in rows}
-        pairs = [(s, k) for s, k in self._keywords.validated_pairs() if s in visible]
-        links = compute_links(pairs)
+        links = [
+            link
+            for link in compute_links(all_pairs)
+            if link.story_a in visible and link.story_b in visible
+        ]
         strong = strongest_links(links, STRONG_PER_STORY)
 
         keyword_ids = {kw for link in links for kw in link.shared_keyword_ids}
         labels = {k.id: k.label for k in self._keywords.get_many(keyword_ids).values()}
         df: dict[int, int] = defaultdict(int)
-        for _story, keyword_id in pairs:
+        for _story, keyword_id in all_pairs:  # rareté mesurée sur toute la famille
             df[keyword_id] += 1
         linked = {story_id for link in links for story_id in (link.story_a, link.story_b)}
 
@@ -181,4 +267,6 @@ class GraphService:
             months=months,
             density=Density.FULL if len(stories) <= FULL_MAX else Density.COMPACT,
             groups=sum(1 for c in nx.connected_components(projection) if len(c) > 1),
+            total=len(all_rows),
+            keyword_ids={label: kw for kw, label in labels.items()},
         )

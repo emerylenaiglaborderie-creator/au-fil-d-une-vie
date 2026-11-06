@@ -1101,3 +1101,46 @@ def test_un_lien_hors_de_vue_ramene_au_recit_lie(qtbot: QtBot, grande_quete: Mai
     assert ecran._selected == cible
     x = plateau.dot_center(cible).x()
     assert barre.value() <= x <= barre.value() + ecran._scroller.viewport().width()
+
+
+# Filtres du graphe
+
+
+def test_filtrer_le_graphe_sur_un_proche(window: MainWindow) -> None:
+    window.show_screen(MainWindow.GRAPH)
+    ecran = window.graph
+    combo = ecran._person_filter
+    combo.setCurrentIndex(combo.findText("Papa · 2"))
+    combo.activated.emit(combo.currentIndex())
+    vue = ecran._view
+    assert vue is not None and {s.person_name for s in vue.stories} == {"Papa"}
+    assert ecran._reset.isVisibleTo(ecran)
+    assert ecran._summary.text().startswith("2 récits sur 6")
+    ecran._reset.click()
+    assert ecran._view is not None and len(ecran._view.stories) == 6
+    assert not ecran._reset.isVisibleTo(ecran)
+
+
+def test_cliquer_l_etiquette_d_un_mot_filtre_le_fil(qtbot: QtBot, window: MainWindow) -> None:
+    window.show()
+    window.show_screen(MainWindow.GRAPH)
+    plateau = window.graph._board
+    plateau.grab()  # pose les étiquettes de mots
+    assert plateau._tags
+    rect, mot = plateau._tags[0]
+    qtbot.mouseClick(plateau, Qt.MouseButton.LeftButton, pos=rect.center().toPoint())
+    vue = window.graph._view
+    assert vue is not None and window.graph._filters.keyword_id == vue.keyword_ids[mot]
+    assert window.graph._word_filter.currentText().startswith(mot)
+
+
+def test_un_filtre_sans_resultat_le_dit(window: MainWindow, services: Services) -> None:
+    from au_fil_d_une_vie.services.graph import GraphFilter
+
+    window.show_screen(MainWindow.GRAPH)
+    ecran = window.graph
+    papa = next(p.id for p, _n in services.people.all() if p.display_name == "Papa")
+    bourg = ecran._view.keyword_ids["bourg"] if ecran._view else 0
+    ecran.set_filters(GraphFilter(person_id=papa, keyword_id=bourg))
+    assert not ecran._scroller.isVisibleTo(ecran)
+    assert ecran._empty.text() == "Aucun récit ne correspond à ces filtres."

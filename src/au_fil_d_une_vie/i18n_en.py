@@ -5,6 +5,15 @@ côtés : un test le vérifie, ainsi que l'absence de phrase non traduite.
 """
 
 EN: dict[str, str] = {
+    "Filtrer": "Filter",
+    "Tous les proches": "All relatives",
+    "Toutes les pistes": "All tracks",
+    "Tous les mots": "All words",
+    "Tout afficher": "Show everything",
+    "Aucun récit ne correspond à ces filtres.": "No story matches these filters.",
+    "{shown} récits sur {total}, {linked} reliés par {words} mots communs.": (
+        "{shown} of {total} stories, {linked} linked by {words} shared words."
+    ),
     "Vue d'ensemble du fil": "Overview of the thread",
     "Clique ou fais glisser pour te déplacer le long du fil.": (
         "Click or drag to move along the thread."

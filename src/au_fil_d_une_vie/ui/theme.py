@@ -272,6 +272,7 @@ QComboBox#personPicker {{
 }}
 QComboBox#personPicker:disabled {{ color: {MUTED}; border-bottom-color: {LEAF_BORDER}; }}
 QComboBox#personPicker::drop-down {{ border: none; width: 24px; }}
+QComboBox#personPicker QLineEdit {{ background: transparent; border: none; padding: 0; }}
 QComboBox#personPicker::down-arrow {{
     image: url("{_asset("chevron-nuit.svg" if DARK_MODE else "chevron.svg")}");
     width: 12px;

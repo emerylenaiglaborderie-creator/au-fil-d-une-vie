@@ -18,6 +18,7 @@ from au_fil_d_une_vie.services.graph import (
     FULL_MAX,
     STRONG_PER_STORY,
     Density,
+    GraphFilter,
     GraphService,
     strongest_links,
 )
@@ -196,3 +197,70 @@ def test_le_graphe_d_une_grande_famille_se_calcule_vite(conn: sqlite3.Connection
     vue = _service(conn).build()
     assert len(vue.stories) == 200
     assert time.perf_counter() - debut < 2.0
+
+
+# Filtres
+
+
+def _personne(conn: sqlite3.Connection, nom: str) -> int:
+    return next(p.id for p in PersonRepository(conn).list_all() if p.display_name == nom)
+
+
+def test_filtrer_sur_un_proche(conn: sqlite3.Connection, ids: dict[str, int]) -> None:
+    vue = _service(conn).build(GraphFilter(person_id=_personne(conn, "Papa")))
+    assert {s.id for s in vue.stories} == {ids["premier_jour"], ids["plat"]}
+    assert vue.total == 6
+    assert [s.position for s in vue.stories] == [0.0, 1.0]  # le fil est réparti à nouveau
+    # Les deux récits de Papa ne partagent aucun mot : aucun arc entre eux.
+    assert vue.arcs == []
+
+
+def test_filtrer_sur_un_mot(conn: sqlite3.Connection, ids: dict[str, int]) -> None:
+    service = _service(conn)
+    bourg = next(o for o in service.filter_options().words if o.label == "bourg")
+    vue = service.build(GraphFilter(keyword_id=bourg.id))
+    assert {s.id for s in vue.stories} == {ids["ecole"], ids["papi"], ids["etes"]}
+    assert all("bourg" in a.words for a in vue.arcs if {a.story_a, a.story_b} <= {ids["ecole"]})
+    assert vue.keyword_ids["bourg"] == bourg.id
+
+
+def test_la_force_d_un_lien_ne_change_pas_quand_on_filtre(
+    conn: sqlite3.Connection, ids: dict[str, int]
+) -> None:
+    service = _service(conn)
+    tout = service.build()
+    enfance = next(o for o in service.filter_options().themes if o.label == "Enfance")
+    filtre = service.build(GraphFilter(theme_id=enfance.id))
+    assert filtre.arcs
+    for arc in filtre.arcs:
+        meme = next(a for a in tout.arcs if (a.story_a, a.story_b) == (arc.story_a, arc.story_b))
+        assert arc.weight == meme.weight and arc.words == meme.words
+
+
+def test_les_filtres_se_combinent(conn: sqlite3.Connection, ids: dict[str, int]) -> None:
+    service = _service(conn)
+    bourg = next(o for o in service.filter_options().words if o.label == "bourg")
+    yvonne = _personne(conn, "Mamie Yvonne")
+    vue = service.build(GraphFilter(person_id=yvonne, keyword_id=bourg.id))
+    assert {s.id for s in vue.stories} == {ids["ecole"], ids["papi"], ids["etes"]}
+    papa = _personne(conn, "Papa")
+    assert service.build(GraphFilter(person_id=papa, keyword_id=bourg.id)).stories == []
+
+
+def test_les_choix_de_filtre_ne_proposent_que_ce_qui_a_des_recits(
+    conn: sqlite3.Connection, ids: dict[str, int]
+) -> None:
+    options = _service(conn).filter_options()
+    assert {o.label for o in options.people} == {"Mamie Yvonne", "Papa", "Tonton Alain"}
+    assert "Tata Nadine" not in {o.label for o in options.people}  # aucun récit
+    assert {o.label for o in options.words} == {
+        "bourg",
+        "sabots",
+        "ferme",
+        "école",
+        "institutrice",
+        "craie",
+    }
+    assert options.words[0].label == "bourg"  # le plus présent d'abord (3 récits)
+    assert GraphFilter().active is False
+    assert GraphFilter(theme_id=1).active is True

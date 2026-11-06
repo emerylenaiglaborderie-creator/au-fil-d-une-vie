@@ -29,7 +29,7 @@ Projet de BTS SIO option SLAM.
 | Écrans « Ma quête » et « Interview » (enregistrement audio) | fait |
 | Transcription locale (faster-whisper) et mots-clés proposés | fait |
 | Récits (fil, recherche, filtres) et Fiche récit (écoute, correction, mots-clés, carnet, masquer, supprimer) | fait |
-| Graphe des liens (fil chronologique, arcs et mots communs) | fait |
+| Graphe des liens (mètre ruban chronologique, liens cousus, filtres par proche, piste ou mot) | fait |
 | Premier lancement (prénom, accord parental sous 15 ans) et gestion des proches | fait |
 | Paramètres : prénom, thème Jour / Nuit / comme l'ordinateur ; icône de l'application | fait |
 | Pistes personnalisables : créer, renommer, réordonner, supprimer pistes et questions | fait |

@@ -16,6 +16,8 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
+    QCompleter,
     QFrame,
     QHBoxLayout,
     QScrollArea,
@@ -25,7 +27,14 @@ from PySide6.QtWidgets import (
 )
 
 from au_fil_d_une_vie.i18n import _
-from au_fil_d_une_vie.services.graph import Arc, Density, GraphService, GraphView, StoryNode
+from au_fil_d_une_vie.services.graph import (
+    Arc,
+    Density,
+    GraphFilter,
+    GraphService,
+    GraphView,
+    StoryNode,
+)
 from au_fil_d_une_vie.services.stories import StoryService
 from au_fil_d_une_vie.ui import theme
 from au_fil_d_une_vie.ui.screens.story import RelatedThread
@@ -90,6 +99,7 @@ class GraphBoard(QWidget):
     story_selected = Signal(int)
     story_activated = Signal(int)
     reveal_requested = Signal(int)  # un récit hors de vue, à ramener à l'écran
+    word_clicked = Signal(str)  # étiquette d'un mot : filtrer le fil sur ce mot
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -97,6 +107,7 @@ class GraphBoard(QWidget):
         self.setMinimumWidth(700)
         self._span = (0.0, float("inf"))  # partie visible quand le fil défile
         self._hints: list[tuple[QRectF, int]] = []  # étiquettes « liens hors de vue »
+        self._tags: list[tuple[QRectF, str]] = []  # étiquettes de mots, cliquables
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setMouseTracking(True)
         self.setAccessibleName(_("Graphe des liens entre les récits"))
@@ -198,8 +209,11 @@ class GraphBoard(QWidget):
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         over = self.node_at(event.position())
+        clickable = over is not None or any(
+            rect.contains(event.position()) for rect, _target in [*self._tags, *self._hints]
+        )
         self.setCursor(
-            Qt.CursorShape.PointingHandCursor if over is not None else Qt.CursorShape.ArrowCursor
+            Qt.CursorShape.PointingHandCursor if clickable else Qt.CursorShape.ArrowCursor
         )
         if over != self._hovered:
             self._hovered = over
@@ -214,6 +228,10 @@ class GraphBoard(QWidget):
         for rect, target in self._hints:
             if rect.contains(event.position()):
                 self.reveal_requested.emit(target)
+                return
+        for rect, word in self._tags:
+            if rect.contains(event.position()):
+                self.word_clicked.emit(word)
                 return
         story_id = self.node_at(event.position())
         if story_id is not None:
@@ -234,6 +252,7 @@ class GraphBoard(QWidget):
         # Le cadre d'encre est celui de la zone qui défile : ses bords restent visibles.
         painter.fillRect(self.rect(), theme.color(theme.PAPER))
         self._hints = []
+        self._tags = []
         if self._view is None or not self._view.stories:
             return
         focus = self._focus()
@@ -375,6 +394,7 @@ class GraphBoard(QWidget):
                 if rect is not None:  # sans place libre, l'arc reste sans étiquette
                     taken.append(rect.adjusted(-4, -2, 4, 2))
                     labels.append((rect, text))
+                    self._tags.append((rect, arc.words[0]))  # le mot le plus rare de l'arc
         return labels
 
     @staticmethod
@@ -646,6 +666,7 @@ class GraphScreen(QWidget):
         self._stories = stories
         self._view: GraphView | None = None
         self._selected: int | None = None
+        self._filters = GraphFilter()
 
         root = QVBoxLayout(self)
         root.setContentsMargins(48, 36, 48, 28)
@@ -665,6 +686,7 @@ class GraphScreen(QWidget):
         self._words.toggled.connect(self._toggle_words)
         head.addWidget(self._words, 0, Qt.AlignmentFlag.AlignBottom)
         root.addLayout(head)
+        root.addLayout(self._build_filters())
 
         # Le fil prend toute la largeur ; la fiche du récit choisi et la légende dessous.
         self._overview = ThreadOverview()
@@ -674,6 +696,7 @@ class GraphScreen(QWidget):
         self._board.story_selected.connect(self.select)
         self._board.story_activated.connect(self.story_opened)
         self._board.reveal_requested.connect(self.reveal)
+        self._board.word_clicked.connect(self.filter_on_word)
         self._scroller = ThreadScroller(self._board)
         wash_shadow(self._scroller)
         bar = self._scroller.horizontalScrollBar()
@@ -705,6 +728,85 @@ class GraphScreen(QWidget):
         below.addStretch(1)
         root.addLayout(below)
         root.addStretch(1)
+
+    def _build_filters(self) -> QHBoxLayout:
+        """Filtres : un proche, une piste, un mot. Ils se combinent."""
+        bar = QHBoxLayout()
+        bar.setSpacing(22)
+        bar.addWidget(eyebrow(_("Filtrer"), color=theme.MUTED, spacing_em=0.14))
+        self._person_filter = self._filter_combo(_("Tous les proches"))
+        self._theme_filter = self._filter_combo(_("Toutes les pistes"))
+        self._word_filter = self._filter_combo(_("Tous les mots"), searchable=True)
+        for combo in (self._person_filter, self._theme_filter, self._word_filter):
+            combo.activated.connect(lambda _index: self._filters_changed())
+            bar.addWidget(combo)
+        self._reset = link_button(_("Tout afficher"))
+        self._reset.clicked.connect(self.clear_filters)
+        self._reset.hide()
+        bar.addWidget(self._reset)
+        bar.addStretch(1)
+        return bar
+
+    @staticmethod
+    def _filter_combo(everything: str, searchable: bool = False) -> QComboBox:
+        combo = QComboBox()
+        combo.setObjectName("personPicker")
+        combo.setFont(theme.font(theme.SERIF, 17, italic=True))
+        combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        combo.setMinimumWidth(200)
+        combo.setAccessibleName(everything)
+        combo.setProperty("everything", everything)
+        if searchable:  # on tape le début ou un morceau du mot
+            combo.setEditable(True)
+            combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+            completer = combo.completer()
+            if completer is not None:
+                completer.setFilterMode(Qt.MatchFlag.MatchContains)
+                completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+        return combo
+
+    def _fill_filters(self) -> None:
+        options = self._graph.filter_options()
+        for combo, items, chosen in (
+            (self._person_filter, options.people, self._filters.person_id),
+            (self._theme_filter, options.themes, self._filters.theme_id),
+            (self._word_filter, options.words, self._filters.keyword_id),
+        ):
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItem(str(combo.property("everything")), None)
+            for option in items:
+                combo.addItem(f"{option.label} · {option.count}", option.id)
+            index = combo.findData(chosen) if chosen is not None else 0
+            combo.setCurrentIndex(max(index, 0))
+            combo.blockSignals(False)
+
+    def _filters_changed(self) -> None:
+        self._filters = GraphFilter(
+            person_id=self._person_filter.currentData(),
+            theme_id=self._theme_filter.currentData(),
+            keyword_id=self._word_filter.currentData(),
+        )
+        self.refresh()
+
+    def set_filters(self, filters: GraphFilter) -> None:
+        self._filters = filters
+        self.refresh()
+
+    def clear_filters(self) -> None:
+        self.set_filters(GraphFilter())
+
+    def filter_on_word(self, word: str) -> None:
+        """Clic sur l'étiquette d'un mot : le fil ne garde que les récits qui en parlent."""
+        if self._view is None or word not in self._view.keyword_ids:
+            return
+        self.set_filters(
+            GraphFilter(
+                person_id=self._filters.person_id,
+                theme_id=self._filters.theme_id,
+                keyword_id=self._view.keyword_ids[word],
+            )
+        )
 
     def _build_card(self) -> QFrame:
         card = QFrame()
@@ -756,7 +858,9 @@ class GraphScreen(QWidget):
     # Données
 
     def refresh(self) -> None:
-        self._view = self._graph.build()
+        self._fill_filters()
+        self._view = self._graph.build(self._filters)
+        self._reset.setVisible(self._filters.active)
         known = {s.id for s in self._view.stories}
         if self._selected not in known:
             self._selected = self._view.busiest_story()
@@ -768,6 +872,11 @@ class GraphScreen(QWidget):
             selected = self._selected
             QTimer.singleShot(0, self, lambda: self._center_on(selected))
         self._card.setVisible(has_stories)
+        self._empty.setText(
+            _("Aucun récit ne correspond à ces filtres.")
+            if self._filters.active
+            else _("Le graphe apparaîtra quand tu auras recueilli et relié quelques récits.")
+        )
         self._empty.setVisible(not has_stories)
         linked = sum(1 for s in self._view.stories if s.linked)
         words = len({word for arc in self._view.arcs for word in arc.words})
@@ -776,15 +885,18 @@ class GraphScreen(QWidget):
             if self._view.density is Density.COMPACT
             else _("Double-clique sur un récit pour l'ouvrir.")
         )
-        self._summary.setText(
-            _("{stories} récits, {linked} reliés par {words} mots communs.").format(
-                stories=len(self._view.stories), linked=linked, words=words
-            )
-            + " "
-            + hint
-            if has_stories
-            else ""
+        counted = _("{stories} récits, {linked} reliés par {words} mots communs.").format(
+            stories=len(self._view.stories), linked=linked, words=words
         )
+        if self._filters.active:
+            counted = _("{shown} récits sur {total}, {linked} reliés par {words} mots communs.")
+            counted = counted.format(
+                shown=len(self._view.stories),
+                total=self._view.total,
+                linked=linked,
+                words=words,
+            )
+        self._summary.setText(f"{counted} {hint}" if has_stories else "")
         self._fill_card()
 
     def select(self, story_id: int) -> None:
