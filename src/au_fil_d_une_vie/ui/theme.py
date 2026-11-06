@@ -99,7 +99,7 @@ SOFT_GREEN = SOFT_GREEN_BORDER = MUTED = NAV_MUTED = CHIP_OUTLINE_TEXT = DASHED 
 ROW_HOVER = INPUT_BORDER = QUOTE = PAPER = WASH = BARK = DOTS = LEAF_DOTS = LEAF_EMPTY = ""
 DARK_MODE = False
 WASH_OPACITY = 0.4
-TREE_OPACITY = 0.5  # arbre en fond du graphe
+TREE_OPACITY = 0.32  # arbre en fond du graphe, discret sous les fils
 GRAIN_OPACITY = 0.55  # grain de papier, en lumière douce (voir widgets.paint_paper)
 
 
@@ -110,7 +110,7 @@ def apply(dark: bool) -> None:
     DARK_MODE = dark
     GRAIN_OPACITY = 0.16 if dark else 0.55
     WASH_OPACITY = 0.16 if dark else 0.4
-    TREE_OPACITY = 0.22 if dark else 0.5
+    TREE_OPACITY = 0.14 if dark else 0.32
 
 
 apply(False)

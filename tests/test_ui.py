@@ -922,3 +922,32 @@ def test_aucun_francais_ne_reste_en_anglais(
         {t for t in vus if t not in autorises and marques.search(t.replace("Au fil d'une vie", ""))}
     )
     assert restes == [], "Texte resté en français :\n" + "\n".join(restes)
+
+
+# Graphe : des fils souples
+
+
+def test_les_fils_du_graphe_sont_courbes_et_stables() -> None:
+    import math
+
+    from PySide6.QtCore import QPointF
+
+    from au_fil_d_une_vie.ui.screens.graph import flowing_thread
+
+    depart, arrivee = QPointF(100, 100), QPointF(400, 160)
+    fil = flowing_thread(depart, arrivee, seed=42)
+    assert fil.pointAtPercent(0) == depart
+    assert fil.pointAtPercent(1) == arrivee
+    dx, dy = arrivee.x() - depart.x(), arrivee.y() - depart.y()
+    longueur = math.hypot(dx, dy)
+
+    def ecart(point: QPointF) -> float:  # distance à la ligne droite
+        return abs(dy * (point.x() - depart.x()) - dx * (point.y() - depart.y())) / longueur
+
+    # Arc ou vague, le fil s'écarte nettement de la droite quelque part.
+    for graine in range(20):
+        fil = flowing_thread(depart, arrivee, seed=graine)
+        assert max(ecart(fil.pointAtPercent(t / 20)) for t in range(1, 20)) > 0.07 * longueur
+    # Même lien, même tracé.
+    un, deux = flowing_thread(depart, arrivee, 7), flowing_thread(depart, arrivee, 7)
+    assert un.pointAtPercent(0.4) == deux.pointAtPercent(0.4)

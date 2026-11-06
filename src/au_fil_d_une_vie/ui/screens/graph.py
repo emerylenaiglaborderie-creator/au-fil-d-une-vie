@@ -1,8 +1,9 @@
 """Écran « Au fil des mots » : le graphe des liens entre les récits."""
 
 import math
+import random
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -20,6 +21,7 @@ from au_fil_d_une_vie.i18n import _
 from au_fil_d_une_vie.services.graph import GraphService, GraphView, StoryNode
 from au_fil_d_une_vie.services.stories import StoryService
 from au_fil_d_une_vie.ui import theme
+from au_fil_d_une_vie.ui.ink import tapered_path
 from au_fil_d_une_vie.ui.screens.story import RelatedThread
 from au_fil_d_une_vie.ui.widgets import (
     eyebrow,
@@ -34,13 +36,25 @@ BOARD = QSize(780, 580)
 PLATE_WIDTH = 150
 
 
-def _curve(start: QPointF, end: QPointF, bend: float = 0.12) -> QPainterPath:
-    """Fil légèrement courbé entre deux points (contrôle décalé sur la perpendiculaire)."""
-    middle = (start + end) / 2
+def flowing_thread(start: QPointF, end: QPointF, seed: int) -> QPainterPath:
+    """Fil souple entre deux points : un arc ou une légère vague, jamais une droite.
+
+    Les points de contrôle sont décalés de part et d'autre de la ligne droite ; la
+    graine (tirée des identifiants du lien) choisit la forme et le sens, pour que
+    chaque fil garde le même tracé d'un affichage à l'autre.
+    """
+    rng = random.Random(seed)
     dx, dy = end.x() - start.x(), end.y() - start.y()
-    control = QPointF(middle.x() - dy * bend, middle.y() + dx * bend)
+    length = math.hypot(dx, dy) or 1.0
+    normal = QPointF(-dy / length, dx / length)
+    side = rng.choice((-1, 1))
+    wave = rng.random() < 0.45  # sinon un arc simple
+    # Une vague se compense en partie : elle demande plus d'ampleur qu'un arc.
+    bend = length * (rng.uniform(0.28, 0.36) if wave else rng.uniform(0.18, 0.26))
+    c1 = start + QPointF(dx, dy) * 0.3 + normal * (side * bend)
+    c2 = start + QPointF(dx, dy) * 0.72 + normal * (side * bend * (-0.55 if wave else 0.6))
     path = QPainterPath(start)
-    path.quadTo(control, end)
+    path.cubicTo(c1, c2, end)
     return path
 
 
@@ -90,6 +104,7 @@ class GraphBoard(QWidget):
         self.setAccessibleName(_("Graphe des liens entre les récits"))
         self._view: GraphView | None = None
         self._selected: int | None = None
+        self._hovered: int | None = None
         self._show_words = True
         self._tree = QPixmap(str(theme.IMAGES / "arbre-fond.png"))
         self._plate_font = theme.font(theme.SERIF, 15, italic=True)
@@ -186,8 +201,21 @@ class GraphBoard(QWidget):
     # Souris
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        over = self.node_at(event.position()) is not None
-        self.setCursor(Qt.CursorShape.PointingHandCursor if over else Qt.CursorShape.ArrowCursor)
+        over = self.node_at(event.position())
+        self.setCursor(
+            Qt.CursorShape.PointingHandCursor if over is not None else Qt.CursorShape.ArrowCursor
+        )
+        if over != self._hovered:  # les fils du récit survolé ressortent
+            self._hovered = over
+            self.update()
+
+    def leaveEvent(self, event: QEvent) -> None:
+        if self._hovered is not None:
+            self._hovered = None
+            self.update()
+
+    def _is_strong(self, story_id: int) -> bool:
+        return story_id in (self._selected, self._hovered)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         story_id = self.node_at(event.position())
@@ -239,39 +267,50 @@ class GraphBoard(QWidget):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRoundedRect(frame, 3, 3)
 
-    def _thread_pen(self, strong: bool, width: float = 2.0) -> QPen:
+    def _thread_color(self, strong: bool) -> QColor:
         color = QColor(theme.THREAD if strong else theme.THREAD_SOFT)
-        if not strong:
-            color.setAlphaF(0.6)
-        pen = QPen(color, 2.8 if strong else width)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        return pen
+        color.setAlphaF(0.95 if strong else 0.45)
+        return color
 
     def _paint_word_threads(self, painter: QPainter) -> None:
+        """Du récit vers chaque mot partagé : un trait de pinceau qui s'affine."""
         assert self._view is not None
-        words = {w.keyword_id: w for w in self._view.words}
         stories = {s.id: s for s in self._view.stories}
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        for strong in (False, True):  # les fils du récit choisi par-dessus
+        words = {w.keyword_id: w for w in self._view.words}
+        painter.setPen(Qt.PenStyle.NoPen)
+        for strong in (False, True):  # les fils du récit choisi ou survolé par-dessus
             for story_id, keyword_id in self._view.word_edges:
-                if (story_id == self._selected) != strong:
+                if self._is_strong(story_id) != strong:
                     continue
-                story, word = stories[story_id], words[keyword_id]
-                painter.setPen(self._thread_pen(strong))
-                painter.drawPath(_curve(self._point(story.x, story.y), self._point(word.x, word.y)))
+                story = stories[story_id]
+                # Le fil arrive là où l'étiquette du mot est vraiment dessinée.
+                word_at = self._word_centers.get(
+                    keyword_id, self._point(words[keyword_id].x, words[keyword_id].y)
+                )
+                thread = flowing_thread(
+                    self._point(story.x, story.y), word_at, seed=story_id * 7919 + keyword_id
+                )
+                painter.setBrush(self._thread_color(strong))
+                painter.drawPath(tapered_path(thread, 4.2 if strong else 2.6, 1.0))
 
     def _paint_story_threads(self, painter: QPainter) -> None:
+        """D'un récit à l'autre : plus le lien est fort, plus le fil est épais."""
         assert self._view is not None
         stories = {s.id: s for s in self._view.stories}
         heaviest = max((link.weight for link in self._view.story_links), default=1.0)
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        for link in self._view.story_links:
-            strong = self._selected in (link.story_a, link.story_b)
-            a, b = stories.get(link.story_a), stories.get(link.story_b)
-            if a is None or b is None:
-                continue
-            painter.setPen(self._thread_pen(strong, 1.2 + 2.4 * link.weight / heaviest))
-            painter.drawPath(_curve(self._point(a.x, a.y), self._point(b.x, b.y), 0.18))
+        for strong in (False, True):
+            for link in self._view.story_links:
+                if (self._is_strong(link.story_a) or self._is_strong(link.story_b)) != strong:
+                    continue
+                a, b = stories.get(link.story_a), stories.get(link.story_b)
+                if a is None or b is None:
+                    continue
+                pen = QPen(self._thread_color(strong), 1.2 + 2.6 * link.weight / heaviest)
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                painter.setPen(pen)
+                seed = min(link.story_a, link.story_b) * 7919 + max(link.story_a, link.story_b)
+                painter.drawPath(flowing_thread(self._point(a.x, a.y), self._point(b.x, b.y), seed))
 
     def _paint_story(self, painter: QPainter, node: StoryNode) -> None:
         center = self._point(node.x, node.y)
@@ -305,11 +344,14 @@ class GraphBoard(QWidget):
         )
 
     def _paint_word(self, painter: QPainter, text: str, center: QPointF) -> None:
+        """Étiquette feuille du style herbier : ombre pleine décalée, bord fin."""
         rect = self._word_rect(text, center)
-        shadow = QColor(0, 0, 0, 46)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(shadow)
-        painter.drawPath(_leaf_path(rect.translated(0, 1)))
+        painter.setBrush(theme.color(theme.WASH))
+        painter.drawPath(_leaf_path(rect.translated(3, 3)))
+        border = QColor(theme.LEAF_TEXT_SOFT)
+        border.setAlphaF(0.55)
+        painter.setPen(QPen(border, 1.0))
         painter.setBrush(theme.color(theme.WORD_GREEN))
         painter.drawPath(_leaf_path(rect))
         painter.setFont(self._word_font)
