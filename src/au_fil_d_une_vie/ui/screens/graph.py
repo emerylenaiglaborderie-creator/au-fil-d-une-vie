@@ -314,12 +314,21 @@ class GraphBoard(QWidget):
             painter.drawPath(path)
             if id(arc) in labelled and not leaving:
                 text = self._words_text(arc)
-                rect = self._word_rect(text, path.pointAtPercent(0.5))
-                while any(rect.intersects(t) for t in taken) and rect.top() > 8:
-                    rect.translate(0, -24)  # étiquettes empilées sans se chevaucher
-                taken.append(rect.adjusted(-4, -2, 4, 2))
-                labels.append((rect, text))
+                rect = self._free_spot(self._word_rect(text, path.pointAtPercent(0.5)), taken)
+                if rect is not None:  # sans place libre, l'arc reste sans étiquette
+                    taken.append(rect.adjusted(-4, -2, 4, 2))
+                    labels.append((rect, text))
         return labels
+
+    def _free_spot(self, rect: QRectF, taken: list[QRectF]) -> QRectF | None:
+        """Place de l'étiquette : au sommet de l'arc, sinon juste au-dessus ou au-dessous,
+        sans sortir du plateau ni descendre sur le fil."""
+        for shift in (0, -24, 24, -48, 48, 72):
+            candidate = rect.translated(0, shift)
+            inside = candidate.top() >= 6 and candidate.bottom() <= self._thread_y() - 24
+            if inside and not any(candidate.intersects(t) for t in taken):
+                return candidate
+        return None
 
     def _within_span(self, arc: Arc) -> bool:
         left, right = self._span
