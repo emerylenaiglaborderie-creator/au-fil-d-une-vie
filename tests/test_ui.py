@@ -212,6 +212,29 @@ def test_les_proches_a_interroger_ne_sont_jamais_coupes(
     qtbot.waitUntil(tous_visibles, timeout=2000)
 
 
+def test_le_bouton_lancer_ne_recouvre_jamais_les_proches(
+    qtbot: QtBot, window: MainWindow, services: Services
+) -> None:
+    """Bug : la carte, écrasée par le texte d'intro replié, posait le bouton sur les noms."""
+
+    def ecart() -> int:
+        boutons = window.quest._people.buttons()
+        boite = boutons[0].parentWidget()
+        lancer = next(
+            b for b in window.quest._card.findChildren(PrimaryButton) if "interview" in b.text()
+        )
+        return lancer.geometry().top() - boite.geometry().bottom()
+
+    window.show()
+    for nom in NOUVEAUX_PROCHES[:3]:
+        services.people.add(nom, "famille")
+    window._after_people()
+    window.show_screen(MainWindow.QUEST)
+    for largeur in (1360, 1080, 1360):
+        window.resize(largeur, 900)
+        qtbot.waitUntil(lambda: ecart() >= 10, timeout=2000)
+
+
 def test_la_liste_des_proches_defile_au_lieu_de_grandir(
     qtbot: QtBot, grande_famille: MainWindow
 ) -> None:

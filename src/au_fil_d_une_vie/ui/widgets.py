@@ -27,6 +27,7 @@ from PySide6.QtGui import (
     QPaintEvent,
     QPen,
     QPixmap,
+    QResizeEvent,
 )
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
@@ -347,6 +348,45 @@ def outline_button(text: str, icon: str | None = None, large: bool = False) -> Q
 # Textes
 
 
+class WrappingLabel(QLabel):
+    """Texte sur plusieurs lignes qui réserve toujours sa vraie hauteur.
+
+    Qt calcule la hauteur d'un texte replié à partir de sa largeur, mais les zones de
+    défilement ne la redemandent pas : la page lui réservait une seule ligne et
+    écrasait ses voisins (la rangée des proches dans Les pistes). La hauteur pour la
+    largeur courante est donc imposée comme minimum, juste après chaque mise en page.
+    """
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._fit()
+
+    def setText(self, text: str) -> None:  # noqa: N802 (même nom que Qt)
+        super().setText(text)
+        self._fit()
+
+    def _fit(self) -> None:
+        if self.width() <= 0:
+            return
+        needed = self._natural_height(self.width())
+        if needed > 0 and needed != self.minimumHeight():
+            QTimer.singleShot(0, self, lambda: self.setMinimumHeight(needed))
+
+    def _natural_height(self, width: int) -> int:
+        """Hauteur du texte pour une largeur, sans le minimum déjà imposé.
+
+        QLabel.heightForWidth tient compte de la hauteur minimale : sans ce détour,
+        un texte agrandi en fenêtre étroite ne retrouverait jamais sa hauteur.
+        """
+        current = self.minimumHeight()
+        if current == 0:
+            return self.heightForWidth(width)
+        self.setMinimumHeight(0)
+        natural = self.heightForWidth(width)
+        self.setMinimumHeight(current)
+        return natural
+
+
 def label(
     text: str,
     family: str = theme.SANS,
@@ -357,7 +397,7 @@ def label(
     wrap: bool = False,
     spacing_em: float = 0.0,
 ) -> QLabel:
-    widget = QLabel(text)
+    widget = WrappingLabel(text) if wrap else QLabel(text)
     widget.setFont(theme.font(family, px, weight, italic, spacing_em))
     widget.setStyleSheet(f"color: {color or theme.INK};")
     widget.setWordWrap(wrap)

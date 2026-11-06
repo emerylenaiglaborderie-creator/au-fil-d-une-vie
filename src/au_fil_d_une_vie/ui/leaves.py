@@ -1,6 +1,6 @@
 """Étiquettes « feuille », onglets soulignés, champ de recherche et disposition fluide."""
 
-from PySide6.QtCore import QMargins, QPoint, QRect, QSize, Qt, Signal
+from PySide6.QtCore import QMargins, QPoint, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QFont, QFontMetrics, QResizeEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -49,7 +49,10 @@ class FlowLayout(QLayout):
         return Qt.Orientation(0)
 
     def hasHeightForWidth(self) -> bool:
-        return True
+        # Volontairement faux : les caches de hauteur variable de Qt ne se mettent pas
+        # à jour dans les mises en page imbriquées (une carte gardait son ancienne
+        # hauteur). La hauteur est imposée comme minimum explicite (voir setGeometry).
+        return False
 
     def heightForWidth(self, width: int) -> int:
         return self._arrange(QRect(0, 0, width, 0), apply=False)
@@ -57,14 +60,15 @@ class FlowLayout(QLayout):
     def setGeometry(self, rect: QRect) -> None:
         super().setGeometry(rect)
         self._arrange(rect, apply=True)
-        # La hauteur dépend de la largeur (lignes repliées). Les zones de défilement
-        # et les cartes ne la redemandent pas toujours : on l'impose comme hauteur
-        # minimale du widget, que toutes les mises en page respectent.
+        # La hauteur dépend de la largeur (lignes repliées) : on l'impose comme hauteur
+        # minimale du widget, que toutes les mises en page respectent et propagent.
+        # Juste après la mise en page en cours : un changement fait pendant celle-ci
+        # serait ignoré par les parents (la carte garderait son ancienne hauteur).
         owner = self.parentWidget()
         if owner is not None and rect.width() > 0:
             needed = self.heightForWidth(rect.width())
             if owner.minimumHeight() != needed:
-                owner.setMinimumHeight(needed)
+                QTimer.singleShot(0, owner, lambda: owner.setMinimumHeight(needed))
 
     def sizeHint(self) -> QSize:
         return self.minimumSize()
